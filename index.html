@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="zh-Hant" data-lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--
+  Materia Cosmos | 工程材料・星海航路圖
+  (c) 2026 AEML, NTUST — Advanced Engineering Materials Laboratory,
+  Department of Civil and Construction Engineering, National Taiwan University of Science and Technology.
+  All rights reserved. 未經授權，請勿複製、修改或重新發布。
+-->
+<title>星海航路圖 Materia Cosmos</title>
+<meta name="author" content="AEML, NTUST">
+<meta name="copyright" content="(c) 2026 AEML, NTUST">
+<meta name="description" content="工程材料互動課程地圖 Engineering Materials course map - AEML, NTUST">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700&family=Noto+Sans+TC:wght@400;500&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap">
+<style>
+/* Materia Cosmos - AEML, NTUST. Layout: one full-screen night sky; a gold spiral route runs outward from a central star.
+   Single deliberate look (deep indigo night), so no light theme. */
+:root{
+  --ai:#0a1029;--ai-2:#141e45;--ai-3:#1b2858;
+  --kin:#d8b56c;--kin-soft:rgba(216,181,108,.38);--kin-faint:rgba(216,181,108,.14);
+  --shu:#d0583e;--washi:#efe6d2;--mist:#9aa5c6;
+  --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-latin:"Cormorant Garamond","Times New Roman",serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--ai);color:var(--washi);font-family:var(--f-body);font-size:14px;overflow:hidden;
+  -webkit-tap-highlight-color:transparent;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+a{color:inherit}
+img{max-width:100%}
+[hidden]{display:none!important}
+:focus-visible{outline:1.5px solid var(--kin);outline-offset:3px;border-radius:6px}
+
+/* ---------- language switching: every text lives in HTML as .L > .zh + .en ---------- */
+html[data-lang="zh"] .L>.en{display:none}
+html[data-lang="en"] .L>.zh{display:none}
+html[data-lang="bi"] .L:not(.b)>.en::before{content:" / ";opacity:.6}
+html[data-lang="bi"] .L.b>.en{display:block;font-size:.78em;opacity:.78;letter-spacing:.02em;margin-top:.15em}
+html[data-lang="en"] .L>.en,html[data-lang="bi"] .L>.en{font-family:inherit}
+.en{letter-spacing:.01em}
+#data,#msgs,template{display:none}
+
+/* ---------- sky + world ---------- */
+#stage{position:fixed;inset:0;overflow:hidden;touch-action:none;cursor:grab}
+#stage.dragging{cursor:grabbing}
+#sky{position:absolute;inset:-8%;background-color:var(--ai);background-position:center;background-size:cover;background-repeat:no-repeat;will-change:transform}
+#vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 45%,rgba(5,8,22,.75) 100%)}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
+#fx.front{z-index:61}
+#world{position:absolute;left:0;top:0;width:3000px;height:2000px;transform-origin:0 0;will-change:transform;z-index:2}
+#route{position:absolute;inset:0;overflow:visible}
+
+.node{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:6px;width:var(--d)}
+.node .orb{position:relative;width:var(--d);height:var(--d);border-radius:50%;
+  animation:float 7s ease-in-out infinite;animation-delay:var(--delay,0s);transition:transform .5s cubic-bezier(.2,.8,.2,1),filter .5s}
+.node .orb img{width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none}
+.node:hover .orb,.node:focus-visible .orb,.node.active .orb{transform:scale(1.08)}
+.node .halo{position:absolute;inset:10%;border-radius:50%;border:1px solid var(--kin);opacity:0;
+  box-shadow:0 0 18px var(--kin-soft),inset 0 0 18px var(--kin-soft);transition:opacity .8s}
+.node.visited .halo{opacity:.85;animation:breathe 4s ease-in-out infinite}
+.node.next .orb::after{content:"";position:absolute;inset:-4%;border-radius:50%;border:1px dashed var(--kin);animation:spin 24s linear infinite;opacity:.8}
+.tag{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center;white-space:nowrap;text-shadow:0 1px 6px #000,0 0 2px #000;pointer-events:none}
+.tag .no{font-family:var(--f-latin);font-style:italic;font-size:15px;color:var(--kin);letter-spacing:.06em}
+.tag .nm{font-family:var(--f-display);font-weight:700;font-size:21px;letter-spacing:.18em}
+.tag .nm .en{font-family:var(--f-latin);font-weight:500;font-style:italic;letter-spacing:.04em}
+.tag .seal{font-size:11px;color:var(--kin);letter-spacing:.2em;margin-top:2px}
+.node.locked .orb{filter:saturate(.55) brightness(.6)}
+.node.locked .tag .nm{color:var(--mist)}
+.node.station-final .orb img{filter:grayscale(.85) brightness(.5)}
+.node.unseen .orb{display:grid;place-items:center}
+.node.unseen .orb::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--washi);
+  box-shadow:0 0 12px 4px rgba(239,230,210,.5),0 0 40px 10px rgba(216,181,108,.18);animation:twinkle 3s ease-in-out infinite}
+.node.unseen .orb::after{content:"";position:absolute;inset:14%;border-radius:50%;border:1px dashed rgba(216,181,108,.35)}
+@keyframes float{0%,100%{translate:0 -5px}50%{translate:0 5px}}
+@keyframes breathe{0%,100%{opacity:.85}50%{opacity:.4}}
+@keyframes twinkle{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes spin{to{rotate:360deg}}
+
+/* ---------- top bar ---------- */
+#bar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:linear-gradient(to bottom,rgba(6,10,28,.85),transparent);pointer-events:none}
+#bar>*{pointer-events:auto}
+.brand{display:flex;flex-direction:column;min-width:0}
+.brand b{font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.2em;white-space:nowrap}
+.brand i{font-family:var(--f-latin);font-size:14px;color:var(--kin);letter-spacing:.08em}
+.tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border-radius:17px;white-space:nowrap;
+  border:1px solid var(--kin-soft);background:rgba(10,16,41,.55);backdrop-filter:blur(6px);font-size:13px;letter-spacing:.06em;
+  font-variant-numeric:tabular-nums;transition:border-color .2s,background .2s;text-decoration:none}
+button.pill:hover,a.pill:hover{border-color:var(--kin);background:rgba(20,30,69,.8)}
+.pill .star{color:var(--kin)}
+.pill svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6}
+.icon-only{width:34px;padding:0;justify-content:center}
+#hint{position:fixed;left:0;right:0;bottom:0;z-index:15;text-align:center;font-size:12.5px;color:var(--mist);letter-spacing:.1em;
+  padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));pointer-events:none;text-shadow:0 1px 4px #000}
+#hint b{color:var(--washi);font-weight:500}
+#credit{position:fixed;z-index:16;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  font-family:var(--f-latin);font-size:13px;letter-spacing:.08em;color:rgba(216,181,108,.7);pointer-events:none}
+
+/* ---------- info card ---------- */
+#card{position:fixed;z-index:30;right:max(20px,calc(env(safe-area-inset-right,0px) + 12px));top:50%;width:min(390px,calc(100vw - 32px));
+  transform:translate(calc(100% + 40px),-50%);opacity:0;transition:transform .55s cubic-bezier(.2,.8,.2,1),opacity .4s;
+  background:linear-gradient(160deg,rgba(24,34,76,.95),rgba(10,16,41,.97));border:1px solid var(--kin-soft);border-radius:4px;
+  padding:26px 26px 22px;box-shadow:0 20px 60px rgba(0,0,0,.55);max-height:calc(100% - 140px);overflow:auto;user-select:text}
+#card.open{transform:translate(0,-50%);opacity:1}
+.frame::before,.frame::after{content:"";position:absolute;width:18px;height:18px;border:1px solid var(--kin);pointer-events:none}
+.frame::before{top:6px;left:6px;border-right:0;border-bottom:0}
+.frame::after{bottom:6px;right:6px;border-left:0;border-top:0}
+.c-eyebrow{font-family:var(--f-latin);font-style:italic;color:var(--kin);font-size:16px;letter-spacing:.06em}
+.c-name{font-family:var(--f-display);font-weight:700;font-size:28px;letter-spacing:.2em;margin:4px 0 4px;text-wrap:balance;line-height:1.3}
+.c-title{font-family:var(--f-display);font-weight:500;font-size:17px;line-height:1.5;text-wrap:balance}
+.c-rule{height:1px;margin:16px 0;background:linear-gradient(to right,var(--kin),transparent)}
+.c-label{font-size:11.5px;letter-spacing:.22em;color:var(--kin);margin-bottom:8px}
+.c-topics{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;padding:0;list-style:none}
+.c-topics li{font-size:13px;padding:4px 10px;border:1px solid rgba(154,165,198,.35);border-radius:2px;background:rgba(255,255,255,.03)}
+.c-meta{font-size:13.5px;color:var(--mist);line-height:1.8;display:grid;grid-template-columns:auto 1fr;gap:0 14px}
+.c-meta b{color:var(--washi);font-weight:500}
+.c-desc{font-size:14.5px;line-height:1.85;margin:0}
+.c-actions{display:flex;gap:10px;margin-top:20px}
+.btn{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:2px;padding:6px 10px;text-align:center;
+  font-family:var(--f-display);font-size:15px;letter-spacing:.16em;text-decoration:none;transition:filter .2s,background .2s}
+.btn.go{background:var(--shu);color:#fff6ea;box-shadow:inset 0 0 0 1px rgba(255,220,180,.35)}
+.btn.go:hover{filter:brightness(1.12)}
+.btn.ghost{border:1px solid var(--kin-soft)}
+.btn.ghost:hover{background:rgba(216,181,108,.08)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+.state-open,.state-visited,.state-locked{display:none}
+#card[data-state="open"] .state-open,#card[data-state="visited"] .state-visited,#card[data-state="locked"] .state-locked{display:inline}
+
+/* ---------- panels: list + settings ---------- */
+.overlay{position:fixed;z-index:40;inset:0;display:grid;place-items:center;background:rgba(5,8,22,.7);backdrop-filter:blur(4px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.panel{position:relative;width:min(640px,100%);max-height:calc(100% - 60px);overflow:auto;background:var(--ai-2);border:1px solid var(--kin-soft);border-radius:4px;padding:24px;user-select:text}
+.p-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+.p-head h2{margin:0;font-family:var(--f-display);font-size:21px;letter-spacing:.18em}
+.l-row{display:grid;grid-template-columns:52px 1fr auto;gap:14px;align-items:center;width:100%;text-align:left;padding:10px 8px;border-top:1px solid rgba(216,181,108,.15)}
+.l-row img{width:52px;height:52px}
+.l-row .dot{width:52px;height:52px;display:grid;place-items:center;color:var(--mist)}
+.l-row .t{min-width:0;display:flex;flex-direction:column;gap:2px}
+.l-row .t b{font-family:var(--f-display);font-size:15.5px;letter-spacing:.04em;line-height:1.45}
+.l-row .t small{color:var(--mist);font-size:12.5px}
+.l-row .st{font-size:12px;letter-spacing:.1em;color:var(--mist);white-space:nowrap;text-align:right}
+.l-row .st.ok{color:var(--kin)}
+button.l-row:hover{background:rgba(216,181,108,.06)}
+.l-row.off{opacity:.5}
+
+.set{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;padding:13px 0;border-top:1px solid rgba(216,181,108,.13)}
+.set .lab{display:flex;flex-direction:column;gap:3px;min-width:0}
+.set .lab b{font-weight:500;font-size:14.5px}
+.set .lab small{color:var(--mist);font-size:12px;line-height:1.5}
+.set.wide{grid-template-columns:1fr}
+.seg{display:inline-flex;border:1px solid var(--kin-soft);border-radius:17px;overflow:hidden;flex-wrap:wrap}
+.seg button{min-height:32px;padding:4px 12px;font-size:12.5px;letter-spacing:.04em;border-left:1px solid var(--kin-faint)}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--kin);color:var(--ai)}
+.tog{position:relative;width:52px;height:28px;border-radius:14px;border:1px solid var(--kin-soft);background:rgba(255,255,255,.04);transition:background .25s}
+.tog::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--mist);transition:transform .25s,background .25s}
+.tog[aria-pressed="true"]{background:rgba(216,181,108,.3)}
+.tog[aria-pressed="true"]::after{transform:translateX(24px);background:var(--kin)}
+.sliders{display:grid;grid-template-columns:auto minmax(0,1fr) 3.2em;gap:8px 12px;align-items:center;font-size:13px;color:var(--mist)}
+.sliders input{width:100%;accent-color:var(--kin)}
+.sliders output{text-align:right;font-variant-numeric:tabular-nums;color:var(--washi)}
+.status{font-size:12px;color:var(--kin);margin-top:4px}
+.p-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px;font-size:12.5px;color:var(--mist)}
+.p-foot button,.p-foot a{text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- start screen ---------- */
+#start{position:fixed;inset:0;z-index:50;display:grid;place-items:center;
+  background:radial-gradient(ellipse at center,rgba(20,30,69,.5),rgba(5,8,22,.94));transition:opacity 1.2s;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow:auto}
+#start.gone{opacity:0;pointer-events:none}
+.s-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;padding-block:24px}
+.s-sun{width:min(200px,42vw);aspect-ratio:1;max-width:100%;animation:spin 90s linear infinite}
+.s-title{font-family:var(--f-display);font-weight:700;font-size:clamp(30px,6vw,52px);letter-spacing:.3em;padding-left:.3em;margin:0;line-height:1.25}
+.s-sub{font-family:var(--f-latin);font-style:italic;font-size:clamp(17px,2.4vw,22px);color:var(--kin);letter-spacing:.12em;margin-top:-6px}
+.s-course{font-size:13px;color:var(--mist);letter-spacing:.24em}
+.s-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.s-btn{min-height:48px;padding:0 26px;border:1px solid var(--kin);border-radius:2px;font-family:var(--f-display);font-size:16px;letter-spacing:.2em;
+  background:rgba(216,181,108,.08);transition:background .3s;display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+.s-btn:hover{background:rgba(216,181,108,.2)}
+.s-btn.main{background:rgba(208,88,62,.85);border-color:rgba(255,210,170,.5)}
+.s-btn.main:hover{background:var(--shu)}
+.s-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6}
+.s-small{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;font-size:12.5px;color:var(--mist)}
+
+#narr{position:fixed;inset:0;z-index:49;display:grid;place-items:center;pointer-events:none;padding:0 24px}
+#narr p{margin:0;font-family:var(--f-display);font-size:clamp(16px,2.5vw,23px);line-height:2.1;letter-spacing:.16em;text-align:center;text-shadow:0 2px 12px #000}
+#narr p>span{display:block;opacity:0;transform:translateY(8px);transition:opacity 1.4s,transform 1.4s;margin-bottom:.5em}
+#narr p>span.on{opacity:1;transform:none}
+#narr.fade{opacity:0;transition:opacity 1s}
+.skip{position:fixed;z-index:70;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  font-size:13px;letter-spacing:.14em;color:var(--washi);border:1px solid var(--kin-soft);border-radius:17px;padding:7px 16px;background:rgba(10,16,41,.6)}
+.skip:hover{border-color:var(--kin)}
+
+/* ---------- voyage ---------- */
+#warpDim{position:fixed;inset:0;z-index:60;background:#050816;opacity:0;pointer-events:none;transition:opacity .4s}
+#warpDim.on{opacity:1;pointer-events:auto}
+#warpImg{position:fixed;left:50%;top:50%;z-index:62;width:min(70vmin,720px);aspect-ratio:1;max-width:100%;translate:-50% -50%;opacity:0;pointer-events:none}
+#flash{position:fixed;inset:0;z-index:68;pointer-events:none;background:radial-gradient(circle,#fff8e8,#f2dfb4 60%,rgba(216,181,108,0));opacity:0}
+
+/* ---------- trailer ---------- */
+#trailer{position:fixed;inset:0;z-index:63;overflow:hidden;pointer-events:none;opacity:0;transition:opacity .6s}
+#trailer.on{opacity:1;pointer-events:auto}
+#tvPlanet{position:absolute;left:50%;top:50%;width:min(62vmin,640px);aspect-ratio:1;max-width:100%;translate:-50% -50%;will-change:transform,opacity}
+#tvLines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+#tvText{position:absolute;inset:0;padding-top:calc(70px + env(safe-area-inset-top,0px));padding-bottom:calc(90px + env(safe-area-inset-bottom,0px));
+  padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;justify-content:center;gap:14px;text-shadow:0 2px 14px #000,0 0 3px #000}
+#tvText .k{margin:0;font-family:var(--f-latin);font-style:italic;color:var(--kin);font-size:clamp(15px,2vw,20px);letter-spacing:.14em}
+#tvText h3{margin:0;font-family:var(--f-display);font-weight:700;font-size:clamp(26px,4.6vw,50px);letter-spacing:.14em;line-height:1.3;text-wrap:balance}
+#tvText .ln{margin:0;font-family:var(--f-display);font-size:clamp(16px,2.3vw,22px);line-height:1.9;letter-spacing:.08em;max-width:30em}
+#tvText ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;max-width:34em}
+#tvText li{display:flex;flex-direction:column;gap:2px;padding:10px 14px;border-left:2px solid var(--kin);background:linear-gradient(90deg,rgba(10,16,41,.78),rgba(10,16,41,0))}
+#tvText li b{font-family:var(--f-display);font-size:clamp(16px,2.1vw,20px);letter-spacing:.06em}
+#tvText li span{font-size:clamp(13px,1.6vw,15.5px);color:var(--mist);line-height:1.6}
+#tvText .rise{opacity:0;animation:rise .9s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+#tvText[data-type="open"],#tvText[data-type="end"]{align-items:center;text-align:center;justify-content:flex-end}
+#tvText[data-type="open"] h3,#tvText[data-type="end"] h3{letter-spacing:.24em}
+#tvText[data-type="story"]{align-items:flex-start;max-width:min(760px,100%)}
+#tvText[data-type="cast"] ul,#tvText[data-type="mech"] ul{margin-left:auto}
+#tvText[data-type="cast"],#tvText[data-type="mech"]{align-items:flex-end;text-align:left}
+#tvText[data-type="cast"] .k,#tvText[data-type="cast"] h3,#tvText[data-type="mech"] .k,#tvText[data-type="mech"] h3{align-self:flex-end;text-align:right}
+#tvText[data-type="mech"] li{counter-increment:m}
+#tvText[data-type="learn"]{justify-content:flex-start;align-items:center;text-align:center}
+#tvText[data-type="learn"] ul{position:absolute;inset:0;max-width:none;display:block}
+#tvText[data-type="learn"] li{position:absolute;translate:-50% -50%;border:1px solid var(--kin-soft);border-left:1px solid var(--kin-soft);border-radius:2px;
+  background:rgba(10,16,41,.78);padding:8px 14px;white-space:nowrap;align-items:center}
+#tvText[data-type="learn"] li b{font-size:clamp(13px,1.8vw,17px)}
+#tvBar{position:absolute;left:0;right:0;bottom:0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(140px,calc(env(safe-area-inset-right,0px) + 140px));
+  display:flex;align-items:center;gap:12px;font-size:12px;color:var(--mist);font-variant-numeric:tabular-nums}
+#tvProg{flex:1;height:2px;background:rgba(216,181,108,.18);position:relative;overflow:hidden;max-width:520px}
+#tvProg i{position:absolute;inset:0;background:var(--kin);transform-origin:0 50%;transform:scaleX(0)}
+#tvTag{font-family:var(--f-latin);font-style:italic;color:var(--kin);letter-spacing:.1em;font-size:13px}
+
+#arrive{position:fixed;inset:0;z-index:64;display:grid;place-items:center;background:radial-gradient(ellipse at center,#141e45,#050816 75%);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));opacity:0;pointer-events:none;transition:opacity .6s;overflow:auto}
+#arrive.on{opacity:1;pointer-events:auto}
+.a-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;max-width:640px;padding-block:24px}
+.a-img{width:min(280px,56vw);max-width:100%;aspect-ratio:1;animation:float 7s ease-in-out infinite}
+.a-name{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,4.5vw,38px);letter-spacing:.24em;margin:0;line-height:1.3}
+.a-title{font-family:var(--f-display);font-size:17px;color:var(--kin);letter-spacing:.06em}
+.a-line{font-family:var(--f-display);font-size:clamp(15px,2.2vw,18px);line-height:2;letter-spacing:.08em;min-height:2em;user-select:text;margin:0}
+.a-actions{display:flex;gap:12px;width:min(440px,100%);margin-top:6px}
+.typing{clip-path:inset(0 100% 0 0);animation:type 3.2s steps(28) forwards}
+@keyframes type{to{clip-path:inset(0 0 0 0)}}
+
+#toast{position:fixed;z-index:90;left:50%;top:calc(70px + env(safe-area-inset-top,0px));translate:-50% 0;max-width:min(520px,calc(100vw - 32px));
+  background:var(--ai-3);border:1px solid var(--kin-soft);border-radius:4px;padding:12px 16px;font-size:13.5px;line-height:1.6;box-shadow:0 10px 30px rgba(0,0,0,.5);
+  opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.on{opacity:1}
+
+/* ---------- tamper / license notice ---------- */
+#aeml-guard{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#050816;padding:24px;text-align:center}
+#aeml-guard .g{max-width:520px;display:flex;flex-direction:column;gap:14px;align-items:center}
+#aeml-guard b{font-family:var(--f-display);font-size:22px;letter-spacing:.12em;color:var(--kin)}
+#aeml-guard p{margin:0;line-height:1.8;color:var(--washi)}
+
+@media (max-width:640px){
+  .brand b{font-size:15px;letter-spacing:.1em}
+  .brand i,.hide-sm{display:none}
+  .pill{height:32px;padding:0 10px;font-size:12px}
+  .icon-only{width:32px;padding:0}
+  #card{left:50%;right:auto;top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translate(-50%,calc(100% + 40px));max-height:60%}
+  #card.open{transform:translate(-50%,0)}
+  .c-name{font-size:24px}
+  #hint{font-size:11.5px;padding-bottom:calc(34px + env(safe-area-inset-bottom,0px))}
+  #tvText{justify-content:flex-end}
+  #tvText[data-type="cast"],#tvText[data-type="mech"]{align-items:stretch}
+  #tvText li{padding:8px 12px}
+  #tvText[data-type="cast"] ul,#tvText[data-type="mech"] ul{margin-left:0;max-width:none;width:100%}
+  #tvText[data-type="cast"] .k,#tvText[data-type="cast"] h3,#tvText[data-type="mech"] .k,#tvText[data-type="mech"] h3{align-self:flex-start;text-align:left}
+  #tvText[data-type="learn"] li{white-space:normal;max-width:44vw;text-align:center}
+  #tvBar{padding-right:max(120px,calc(env(safe-area-inset-right,0px) + 120px))}
+}
+@media (prefers-reduced-motion:reduce){
+  .node .orb,.s-sun,.a-img,.node.visited .halo,.node.unseen .orb::before,.node.next .orb::after{animation:none}
+}
+
+</style>
+</head>
+<body>
+<div id="aeml-guard" hidden></div>
+<div id="stage" aria-label="Course map"><div id="sky"></div><div id="vig"></div>
+<div id="world"><svg id="route" viewBox="0 0 3000 2000" width="3000" height="2000" aria-hidden="true"></svg></div></div>
+
+<header id="bar">
+  <div class="brand"><b><span class="L"><span class="zh">工程材料・星海航路圖</span><span class="en">Engineering Materials</span></span></b><i>Materia Cosmos</i></div>
+  <div class="tools">
+    <span class="pill" title="Landed"><span class="star">&#9733;</span><span id="prog">0 / 6</span></span>
+    <button class="pill" id="btnFit" type="button"><span class="L"><span class="zh">全景</span><span class="en">Overview</span></span></button>
+    <button class="pill" id="btnList" type="button"><span class="L"><span class="zh">清單</span><span class="en">List</span></span></button>
+    <button class="pill icon-only" data-open-settings type="button" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button>
+    <button class="pill icon-only" data-fs type="button" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </div>
+</header>
+<div id="hint" hidden><span class="L"><span class="zh"><b>點一顆星球開始航行</b>　拖曳移動・滾輪或雙指縮放</span><span class="en"><b>Tap a planet to set sail</b> &nbsp; Drag to move, scroll or pinch to zoom</span></span></div>
+<div id="aeml-credit">&copy; 2026 AEML, NTUST</div>
+<aside id="card" aria-live="polite" aria-hidden="true"></aside>
+<div id="list" class="overlay" hidden><div class="panel" role="dialog" aria-label="Chapters"><div class="frame"></div><div class="p-head"><h2><span class="L"><span class="zh">航路清單</span><span class="en">Route list</span></span></h2><button class="pill" data-close type="button"><span class="L"><span class="zh">關閉</span><span class="en">Close</span></span></button></div><div id="listRows"></div></div></div>
+<div id="settings" class="overlay" hidden><div class="panel" role="dialog" aria-label="Settings"><div class="frame"></div><div class="p-head"><h2><span class="L"><span class="zh">設定</span><span class="en">Settings</span></span></h2><button class="pill" data-close type="button"><span class="L"><span class="zh">關閉</span><span class="en">Close</span></span></button></div><div class="set wide"><div class="lab"><b><span class="L"><span class="zh">語言</span><span class="en">Language</span></span></b></div><div class="seg" role="group" data-seg="lang"><button type="button" data-v="zh" aria-pressed="false">中文</button><button type="button" data-v="bi" aria-pressed="false">中文 / English</button><button type="button" data-v="en" aria-pressed="false">English</button></div></div><div class="set"><div class="lab"><b><span class="L"><span class="zh">背景音樂</span><span class="en">Background music</span></span></b><small><span class="L"><span class="zh">預設關閉。開啟後會隨場景切換曲風：8 軌樂器加 1 軌鼓組，立體聲。</span><span class="en">Off by default. Changes with each scene: 8 instrument tracks plus a drum kit, in stereo.</span></span></small></div><button type="button" class="tog" data-tog="bgm" aria-pressed="false" aria-label="BGM"></button></div><div class="set"><div class="lab"><b><span class="L"><span class="zh">音效</span><span class="en">Sound effects</span></span></b><small><span class="L"><span class="zh">預設開啟。</span><span class="en">On by default.</span></span></small></div><button type="button" class="tog" data-tog="sfx" aria-pressed="false" aria-label="SFX"></button></div><div class="set wide"><div class="lab"><b><span class="L"><span class="zh">音量</span><span class="en">Volume</span></span></b></div><div class="sliders"><label for="sVol"><span class="L"><span class="zh">主音量</span><span class="en">Master</span></span></label><input id="sVol" type="range" min="0" max="1" step="0.05"><output id="sVolOut">80</output><label for="sMus"><span class="L"><span class="zh">音樂</span><span class="en">Music</span></span></label><input id="sMus" type="range" min="0" max="1" step="0.05"><output id="sMusOut">70</output><label for="sSfx"><span class="L"><span class="zh">音效</span><span class="en">Effects</span></span></label><input id="sSfx" type="range" min="0" max="1" step="0.05"><output id="sSfxOut">90</output></div></div><div class="set"><div class="lab"><b><span class="L"><span class="zh">全螢幕</span><span class="en">Full screen</span></span></b><small><span class="L"><span class="zh">預設關閉。按 Esc 可離開。</span><span class="en">Off by default. Press Esc to leave.</span></span></small></div><button type="button" class="tog" data-tog="fs" aria-pressed="false" aria-label="Full screen"></button></div><div class="set"><div class="lab"><b><span class="L"><span class="zh">繪圖</span><span class="en">Rendering</span></span></b><small><span id="gpuStatus" class="status"></span></small></div><div class="seg" role="group" data-seg="render"><button type="button" data-v="gpu" aria-pressed="false"><span class="L"><span class="zh">WebGPU 硬體</span><span class="en">WebGPU hardware</span></span></button><button type="button" data-v="soft" aria-pressed="false"><span class="L"><span class="zh">軟體</span><span class="en">Software</span></span></button></div></div><div class="set"><div class="lab"><b><span class="L"><span class="zh">畫質</span><span class="en">Quality</span></span></b><small><span class="L"><span class="zh">繪製解析度</span><span class="en">Render size</span></span> <span id="resOut"></span></small></div><div class="seg" role="group" data-seg="quality"><button type="button" data-v="fluid" aria-pressed="false"><span class="L"><span class="zh">流暢</span><span class="en">Smooth</span></span></button><button type="button" data-v="standard" aria-pressed="false"><span class="L"><span class="zh">標準</span><span class="en">Standard</span></span></button><button type="button" data-v="high" aria-pressed="false"><span class="L"><span class="zh">高（2K+）</span><span class="en">High (2K+)</span></span></button></div></div><div class="set"><div class="lab"><b><span class="L"><span class="zh">劇情提示</span><span class="en">Story hints</span></span></b><small><span class="L"><span class="zh">開場旁白、登陸台詞與下一站提示。</span><span class="en">Opening narration, landing lines and next-stop hints.</span></span></small></div><button type="button" class="tog" data-tog="story" aria-pressed="false" aria-label="Story"></button></div><div class="p-foot"><a data-manual href="manual.html" target="_blank" rel="noopener"><span class="L"><span class="zh">線上使用說明書</span><span class="en">User manual</span></span></a><button id="resetBtn" type="button"><span class="L"><span class="zh">清除登陸紀錄</span><span class="en">Clear landing record</span></span></button><span>&copy; 2026 AEML, NTUST</span></div></div></div>
+
+<div id="start">
+  <div class="s-wrap">
+    <img class="s-sun" data-img="star" alt="">
+    <h1 class="s-title"><span class="L"><span class="zh">星海航路圖</span><span class="en">Materia Cosmos</span></span></h1>
+    <div class="s-sub">Materia Cosmos</div>
+    <div class="s-course"><span class="L"><span class="zh">工程材料　ENGINEERING MATERIALS</span><span class="en">ENGINEERING MATERIALS</span></span></div>
+    <div class="seg" role="group" data-seg="lang"><button type="button" data-v="zh" aria-pressed="false">中文</button><button type="button" data-v="bi" aria-pressed="false">中文 / English</button><button type="button" data-v="en" aria-pressed="false">English</button></div>
+    <div class="s-actions">
+      <button class="s-btn main" id="startBtn" type="button"><span class="L"><span class="zh">開始觀測</span><span class="en">Start</span></span></button>
+      <button class="s-btn" data-fs type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> <span class="L"><span class="zh">全螢幕</span><span class="en">Full screen</span></span></button>
+    </div>
+    <div class="s-small"><a data-manual href="manual.html" target="_blank" rel="noopener"><span class="L"><span class="zh">使用說明書</span><span class="en">User manual</span></span></a><button type="button" data-open-settings><span class="L"><span class="zh">設定</span><span class="en">Settings</span></span></button><span>&copy; 2026 AEML, NTUST</span></div>
+  </div>
+</div>
+<div id="narr" hidden><p><span><span class="L b"><span class="zh">宇宙中的一切，皆由材料構成。</span><span class="en">Everything in the universe is made of materials.</span></span></span><span><span class="L b"><span class="zh">從原子的鍵結，到鋼鐵的強韌，</span><span class="en">From the bonds between atoms to the toughness of steel,</span></span></span><span><span class="L b"><span class="zh">每顆星球都藏著一個法則。</span><span class="en">every planet holds one law of nature.</span></span></span><span><span class="L b"><span class="zh">星圖師，啟航吧。</span><span class="en">Star-mapper, set sail.</span></span></span></p></div>
+<button id="skip" class="skip" type="button" hidden><span class="L"><span class="zh">略過</span><span class="en">Skip</span></span> &rsaquo;</button>
+
+<div id="warpDim"></div>
+<img id="warpImg" alt="">
+<div id="trailer" aria-live="polite">
+  <img id="tvPlanet" alt="">
+  <svg id="tvLines" aria-hidden="true"></svg>
+  <div id="tvText"></div>
+  <div id="tvBar"><span id="tvTag"></span><span id="tvProg"><i></i></span><span id="tvClock">0:00</span></div>
+  <button id="tvSkip" class="skip" type="button"><span class="L"><span class="zh">略過介紹</span><span class="en">Skip intro</span></span> &rsaquo;</button>
+</div>
+<div id="flash"></div>
+<div id="arrive" aria-live="polite">
+  <div class="a-wrap">
+    <img class="a-img" id="aImg" alt="">
+    <h2 class="a-name" id="aName"></h2>
+    <div class="a-title" id="aTitle"></div>
+    <p class="a-line" id="aLine"></p>
+    <div class="a-actions">
+      <button class="btn ghost" id="aBack" type="button"><span class="L"><span class="zh">返回星圖</span><span class="en">Back to map</span></span></button>
+      <a class="btn go" id="aGo" href="#" rel="noopener"><span class="L"><span class="zh">踏上星球</span><span class="en">Land on planet</span></span> &#8599;</a>
+    </div>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+<template id="tpl-planet"><div class="frame"></div>
+<div class="c-eyebrow"><span data-slot="no"></span> &middot; <span data-slot="ord"></span></div>
+<div class="c-name" data-slot="name"></div><div class="c-title" data-slot="title"></div>
+<div class="c-rule"></div>
+<div class="c-label"><span class="L"><span class="zh">本章探索</span><span class="en">In this chapter</span></span></div><ul class="c-topics" data-slot="topics"></ul>
+<div class="c-meta"><span><span class="L"><span class="zh">類型</span><span class="en">Type</span></span></span><b data-slot="genre"></b><span><span class="L"><span class="zh">狀態</span><span class="en">Status</span></span></span><b><span class="state-open"><span class="L"><span class="zh">尚未登陸</span><span class="en">Not landed yet</span></span></span><span class="state-visited"><span class="L"><span class="zh">已登陸 &#9733;</span><span class="en">Landed &#9733;</span></span></span><span class="state-locked"><span class="L"><span class="zh">觀測中，尚未開放</span><span class="en">Under observation, not open yet</span></span></span></b></div>
+<div class="c-actions"><button class="btn ghost" data-back type="button"><span class="L"><span class="zh">返回星圖</span><span class="en">Back to map</span></span></button><button class="btn go" data-go type="button"><span class="L"><span class="zh">啟　航</span><span class="en">Launch</span></span></button></div></template><template id="tpl-core"><div class="frame"></div><div class="c-eyebrow">The Central Star</div>
+<div class="c-name" data-slot="title"></div><div class="c-rule"></div><p class="c-desc" data-slot="desc"></p>
+<div class="c-actions"><button class="btn ghost" data-back type="button"><span class="L"><span class="zh">返回星圖</span><span class="en">Back to map</span></span></button></div></template><template id="tpl-unseen"><div class="frame"></div><div class="c-eyebrow" data-slot="no"></div><div class="c-name" data-slot="name"></div>
+<div class="c-rule"></div><p class="c-desc"><span class="L"><span class="zh">這片星域還沒有被觀測到。新章節開放後，這裡會亮起一顆新的星球。</span><span class="en">This region has not been observed yet. When a new chapter opens, a new planet will appear here.</span></span></p><div class="c-actions"><button class="btn ghost" data-back type="button"><span class="L"><span class="zh">返回星圖</span><span class="en">Back to map</span></span></button></div></template>
+<div id="data" aria-hidden="true"><div data-node="core"><div data-f="name"><span class="L"><span class="zh">課程恆星</span><span class="en">Central Star</span></span></div><div data-f="title"><span class="L"><span class="zh">工程材料</span><span class="en">Engineering Materials</span></span></div><div data-f="desc"><span class="L"><span class="zh">本學期的航路從原子出發，經過晶體、缺陷與擴散，抵達金屬的力學世界。每顆星球都是一章互動遊戲。可以沿著金色航道依序前往，也可以挑你想先探索的星球。</span><span class="en">This term's route starts at the atom, passes through crystals, defects and diffusion, and reaches the mechanics of metals. Every planet is one chapter played as a game. Follow the gold route in order, or pick the planet you want to explore first.</span></span></div></div><div data-node="ch01"><div data-f="ord"><span class="L"><span class="zh">第一星</span><span class="en">First Planet</span></span></div><div data-f="name"><span class="L"><span class="zh">晶鑄星</span><span class="en">Crystal Forge</span></span></div><div data-f="title"><span class="L"><span class="zh">異星鑄造：晶體覺醒</span><span class="en">AstroForge: Crystal Awakening</span></span></div><div data-f="genre"><span class="L"><span class="zh">沙盒</span><span class="en">Sandbox</span></span></div><div data-f="topics"><li><span class="L"><span class="zh">材料的分類</span><span class="en">Classes of materials</span></span></li><li><span class="L"><span class="zh">加工・結構・性質・性能</span><span class="en">Processing, structure, properties, performance</span></span></li><li><span class="L"><span class="zh">材料選用</span><span class="en">Materials selection</span></span></li></div><div data-f="line"><span class="L"><span class="zh">熔爐深處，第一顆晶體正在甦醒。在這裡，每一種材料都從選擇開始。</span><span class="en">Deep in the furnace, the first crystal is waking. Here, every material begins with a choice.</span></span></div></div><div data-node="ch02"><div data-f="ord"><span class="L"><span class="zh">第二星</span><span class="en">Second Planet</span></span></div><div data-f="name"><span class="L"><span class="zh">均衡雙子星</span><span class="en">Equilibrium Twins</span></span></div><div data-f="title"><span class="L"><span class="zh">真相的平衡點：微觀破案特攻</span><span class="en">The Equilibrium Point: Micro-Investigation</span></span></div><div data-f="genre"><span class="L"><span class="zh">動作</span><span class="en">Action</span></span></div><div data-f="topics"><li><span class="L"><span class="zh">原子結構與量子數</span><span class="en">Atomic structure, quantum numbers</span></span></li><li><span class="L"><span class="zh">電負度</span><span class="en">Electronegativity</span></span></li><li><span class="L"><span class="zh">離子鍵與共價鍵</span><span class="en">Ionic and covalent bonds</span></span></li><li><span class="L"><span class="zh">鍵能與平衡間距 r₀</span><span class="en">Bond energy, equilibrium spacing r₀</span></span></li></div><div data-f="line"><span class="L"><span class="zh">兩顆星彼此牽引，靠得太近會互斥，離得太遠會分離。真相，就藏在那個剛剛好的距離。</span><span class="en">Too close and they repel, too far and they drift apart. The truth lies at exactly the right distance.</span></span></div></div><div data-node="ch03"><div data-f="ord"><span class="L"><span class="zh">第三星</span><span class="en">Third Planet</span></span></div><div data-f="name"><span class="L"><span class="zh">格子星</span><span class="en">Lattice World</span></span></div><div data-f="title"><span class="L"><span class="zh">晶格神探：微觀密室事件簿</span><span class="en">Lattice Detective: The Structure of Crystalline Solids</span></span></div><div data-f="genre"><span class="L"><span class="zh">角色扮演</span><span class="en">RPG</span></span></div><div data-f="topics"><li><span class="L"><span class="zh">SC・FCC・BCC・HCP</span><span class="en">SC, FCC, BCC, HCP</span></span></li><li><span class="L"><span class="zh">配位數與 APF</span><span class="en">Coordination number, APF</span></span></li><li><span class="L"><span class="zh">理論密度</span><span class="en">Theoretical density</span></span></li><li><span class="L"><span class="zh">米勒指數</span><span class="en">Miller indices</span></span></li><li><span class="L"><span class="zh">異向性</span><span class="en">Anisotropy</span></span></li></div><div data-f="line"><span class="L"><span class="zh">這座星球的每一扇窗，排列都一模一樣。密室的答案，就藏在晶格裡。</span><span class="en">Every window on this planet is arranged the same way. The answer to the locked room is in the lattice.</span></span></div></div><div data-node="ch04"><div data-f="ord"><span class="L"><span class="zh">第四星</span><span class="en">Fourth Planet</span></span></div><div data-f="name"><span class="L"><span class="zh">晶界星</span><span class="en">Grain Boundary</span></span></div><div data-f="title"><span class="L"><span class="zh">晶界斬鬼錄：缺陷的試煉</span><span class="en">Blade of the Grain Boundary: Trial of Imperfections</span></span></div><div data-f="genre"><span class="L"><span class="zh">桌遊</span><span class="en">Board game</span></span></div><div data-f="topics"><li><span class="L"><span class="zh">點缺陷與空位</span><span class="en">Point defects, vacancies</span></span></li><li><span class="L"><span class="zh">固溶體</span><span class="en">Solid solutions</span></span></li><li><span class="L"><span class="zh">差排與布格向量</span><span class="en">Dislocations, Burgers vector</span></span></li><li><span class="L"><span class="zh">晶界與晶粒大小</span><span class="en">Grain boundaries, grain size</span></span></li></div><div data-f="line"><span class="L"><span class="zh">完美的晶體並不存在。拔刀吧，缺陷之中藏著材料真正的力量。</span><span class="en">A perfect crystal does not exist. Draw your blade: a material's real strength hides in its defects.</span></span></div></div><div data-node="ch05"><div data-f="ord"><span class="L"><span class="zh">第五星</span><span class="en">Fifth Planet</span></span></div><div data-f="name"><span class="L"><span class="zh">擴散星雲</span><span class="en">Diffusion Nebula</span></span></div><div data-f="title"><span class="L"><span class="zh">擴散</span><span class="en">Diffusion</span></span></div><div data-f="genre"><span class="L"><span class="zh">觀測中</span><span class="en">Under observation</span></span></div><div data-f="topics"><li><span class="L"><span class="zh">擴散機制</span><span class="en">Diffusion mechanisms</span></span></li><li><span class="L"><span class="zh">Fick 定律</span><span class="en">Fick's laws</span></span></li></div><div data-f="line"><span class="L"><span class="zh">星雲仍在擴散，新的星球即將成形。</span><span class="en">The nebula is still spreading. A new planet is about to form.</span></span></div></div><div data-node="ch06"><div data-f="ord"><span class="L"><span class="zh">第六星</span><span class="en">Sixth Planet</span></span></div><div data-f="name"><span class="L"><span class="zh">鈦鋼星</span><span class="en">Titan Steel</span></span></div><div data-f="title"><span class="L"><span class="zh">鋼鐵練習生：鈦扯了吧！金屬英雄大亂鬥</span><span class="en">Steel Trainee: Ti-tally Stretched! Metal Heroes Brawl</span></span></div><div data-f="genre"><span class="L"><span class="zh">MOBA</span><span class="en">MOBA</span></span></div><div data-f="topics"><li><span class="L"><span class="zh">應力與應變</span><span class="en">Stress and strain</span></span></li><li><span class="L"><span class="zh">彈性模數</span><span class="en">Elastic modulus</span></span></li><li><span class="L"><span class="zh">降伏與抗拉強度</span><span class="en">Yield and tensile strength</span></span></li><li><span class="L"><span class="zh">延性與韌性</span><span class="en">Ductility and toughness</span></span></li></div><div data-f="line"><span class="L"><span class="zh">拉伸、降伏、頸縮、斷裂。站上擂台，看看誰才是最強的金屬。</span><span class="en">Stretch, yield, neck, fracture. Step into the arena and see which metal is strongest.</span></span></div></div><div data-node="mid"><div data-f="ord"><span class="L"><span class="zh">夜市太空站</span><span class="en">Night Market Station</span></span></div><div data-f="name"><span class="L"><span class="zh">丸丸辦桌站</span><span class="en">Marumaru Banquet</span></span></div><div data-f="title"><span class="L"><span class="zh">台科夜市・丸丸辦桌大作戰</span><span class="en">Taiwan Tech Night Market / Marumaru Banquet Quest</span></span></div><div data-f="genre"><span class="L"><span class="zh">期中考古題・RTS・AR</span><span class="en">Midterm review, RTS, AR</span></span></div><div data-f="topics"><li><span class="L"><span class="zh">期中考古題</span><span class="en">Past midterm questions</span></span></li><li><span class="L"><span class="zh">Ch.01–06 綜合複習</span><span class="en">Review of Ch.01–06</span></span></li></div><div data-f="line"><span class="L"><span class="zh">提燈亮起，辦桌開席。把一路收集的知識，端上桌吧。</span><span class="en">The lanterns are lit and the banquet begins. Serve up everything you've learned.</span></span></div></div><div data-node="ch07"><div data-f="name"><span class="L"><span class="zh">未觀測星</span><span class="en">Unobserved</span></span></div></div><div data-node="ch08"><div data-f="name"><span class="L"><span class="zh">未觀測星</span><span class="en">Unobserved</span></span></div></div><div data-node="ch09"><div data-f="name"><span class="L"><span class="zh">未觀測星</span><span class="en">Unobserved</span></span></div></div><div data-node="final"><div data-f="ord"><span class="L"><span class="zh">期末太空站</span><span class="en">Final Station</span></span></div><div data-f="name"><span class="L"><span class="zh">期末太空站</span><span class="en">Final Station</span></span></div><div data-f="title"><span class="L"><span class="zh">期末考古題</span><span class="en">Final exam review</span></span></div><div data-f="genre"><span class="L"><span class="zh">尚未開放</span><span class="en">Not open yet</span></span></div><div data-f="topics"><li><span class="L"><span class="zh">期末綜合複習</span><span class="en">Final review</span></span></li></div><div data-f="line"><span class="L"><span class="zh">這座太空站的提燈還沒點亮。</span><span class="en">The lanterns on this station are not lit yet.</span></span></div></div><div data-trailer="ch01"><section data-shot="open" data-dur="5"><p class="k">Chapter 01 &middot; Sandbox</p><h3><span class="L"><span class="zh">異星鑄造：晶體覺醒</span><span class="en">AstroForge: Crystal Awakening</span></span></h3></section><section data-shot="story" data-dur="9"><p class="k"><span class="L"><span class="zh">故事</span><span class="en">Story</span></span></p><p class="ln"><span class="L"><span class="zh">一顆被遺忘的鑄造星，熔爐已沉睡千年。</span><span class="en">A forgotten forge planet. Its furnace has slept for a thousand years.</span></span></p><p class="ln"><span class="L"><span class="zh">你是星際鑄造師，任務是讓第一顆晶體甦醒。</span><span class="en">You are a star-smith, sent to wake the first crystal.</span></span></p><p class="ln"><span class="L"><span class="zh">在這裡沒有標準答案，只有你的選擇。</span><span class="en">There is no single right answer here, only your choices.</span></span></p></section><section data-shot="mech" data-dur="9"><p class="k"><span class="L"><span class="zh">玩法</span><span class="en">How to play</span></span></p><h3><span class="L"><span class="zh">在沙盒中自由鑄造</span><span class="en">Forge freely in a sandbox</span></span></h3><ul><li><b><span class="L"><span class="zh">採集與組合原料</span><span class="en">Gather and combine raw materials</span></span></b></li><li><b><span class="L"><span class="zh">觀察結構如何改變性質</span><span class="en">See how structure changes properties</span></span></b></li><li><b><span class="L"><span class="zh">鑄造符合任務需求的材料</span><span class="en">Forge materials that meet each mission</span></span></b></li></ul></section><section data-shot="learn" data-dur="8"><p class="k"><span class="L"><span class="zh">你將學到</span><span class="en">You will learn</span></span></p><ul><li><b><span class="L"><span class="zh">金屬</span><span class="en">Metals</span></span></b></li><li><b><span class="L"><span class="zh">陶瓷</span><span class="en">Ceramics</span></span></b></li><li><b><span class="L"><span class="zh">高分子</span><span class="en">Polymers</span></span></b></li><li><b><span class="L"><span class="zh">複合材料</span><span class="en">Composites</span></span></b></li><li><b><span class="L"><span class="zh">加工・結構・性質・性能</span><span class="en">Processing-structure-properties-performance</span></span></b></li></ul></section><section data-shot="end" data-dur="5"><p class="k">Ch.01</p><h3><span class="L"><span class="zh">準備登陸</span><span class="en">Prepare to land</span></span></h3><p class="ln"><span class="L"><span class="zh">點燃熔爐，鑄造你的第一顆晶體。</span><span class="en">Light the furnace and forge your first crystal.</span></span></p></section></div><div data-trailer="ch02"><section data-shot="open" data-dur="5"><p class="k">Case File No.02 &middot; Action</p><h3><span class="L"><span class="zh">真相的平衡點：微觀破案特攻</span><span class="en">The Equilibrium Point: Micro-Investigation</span></span></h3></section><section data-shot="story" data-dur="8"><p class="k"><span class="L"><span class="zh">故事</span><span class="en">Story</span></span></p><p class="ln"><span class="L"><span class="zh">每一種材料的命運，都在平衡距離 r₀ 決定。</span><span class="en">Every material's fate is decided at the equilibrium distance r₀.</span></span></p><p class="ln"><span class="L"><span class="zh">你是原子尺度的偵探，深入微觀現場追查真相。</span><span class="en">You are a detective at the atomic scale, chasing the truth on a microscopic crime scene.</span></span></p></section><section data-shot="cast" data-dur="8"><p class="k"><span class="L"><span class="zh">登場角色</span><span class="en">Characters</span></span></p><h3><span class="L"><span class="zh">選擇你的偵探</span><span class="en">Choose your investigator</span></span></h3><ul><li><b><span class="L"><span class="zh">Haru Asagiri</span><span class="en">Haru Asagiri</span></span></b><span><span class="L"><span class="zh">平衡型，量子衝刺距離較長</span><span class="en">Balanced, with a longer quantum dash</span></span></span></li><li><b><span class="L"><span class="zh">Koharu Sakuraba</span><span class="en">Koharu Sakuraba</span></span></b><span><span class="L"><span class="zh">跳躍型，跳得最高、滯空最久</span><span class="en">Jumper, with the highest jump and longest air time</span></span></span></li><li><b><span class="L"><span class="zh">Kon Kitsunemori</span><span class="en">Kon Kitsunemori</span></span></b><span><span class="L"><span class="zh">速度型，奔跑與衝刺最快</span><span class="en">Speedster, with the fastest run and dash</span></span></span></li></ul></section><section data-shot="mech" data-dur="10"><p class="k"><span class="L"><span class="zh">玩法</span><span class="en">How to play</span></span></p><h3><span class="L"><span class="zh">在原子之間奔跑跳躍</span><span class="en">Run and jump between atoms</span></span></h3><ul><li><b><span class="L"><span class="zh">力指針到達 r₀ 時按下空白鍵</span><span class="en">Press Space when the force needle reaches r₀</span></span></b><span><span class="L"><span class="zh">淨力為零，發動平衡一擊</span><span class="en">Net force is zero: land the equilibrium strike</span></span></span></li><li><b><span class="L"><span class="zh">抓住金色節點擺盪</span><span class="en">Grapple the gold nodes</span></span></b><span><span class="L"><span class="zh">像鍵結一樣跨越深坑</span><span class="en">Swing across pits like a bond</span></span></span></li><li><b><span class="L"><span class="zh">讀懂地形</span><span class="en">Read the terrain</span></span></b><span><span class="L"><span class="zh">原子核旁會被斥力彈開，電子海上可以滑行</span><span class="en">Bounce off nuclei, glide on electron seas</span></span></span></li><li><b><span class="L"><span class="zh">生命值＝價電子</span><span class="en">Health = valence electrons</span></span></b><span><span class="L"><span class="zh">最多 8 個，用完就回到檢查點</span><span class="en">Up to 8; run out and return to a checkpoint</span></span></span></li></ul></section><section data-shot="learn" data-dur="7"><p class="k"><span class="L"><span class="zh">你將學到</span><span class="en">You will learn</span></span></p><ul><li><b><span class="L"><span class="zh">量子數</span><span class="en">Quantum numbers</span></span></b></li><li><b><span class="L"><span class="zh">包立不相容</span><span class="en">Pauli exclusion</span></span></b></li><li><b><span class="L"><span class="zh">電負度</span><span class="en">Electronegativity</span></span></b></li><li><b><span class="L"><span class="zh">離子鍵・共價鍵</span><span class="en">Ionic and covalent bonds</span></span></b></li><li><b><span class="L"><span class="zh">鍵能與熔點</span><span class="en">Bond energy and melting point</span></span></b></li><li><b><span class="L"><span class="zh">熱膨脹</span><span class="en">Thermal expansion</span></span></b></li></ul></section><section data-shot="end" data-dur="5"><p class="k">Ch.02</p><h3><span class="L"><span class="zh">準備登陸</span><span class="en">Prepare to land</span></span></h3><p class="ln"><span class="L"><span class="zh">找出那個剛剛好的距離。</span><span class="en">Find the distance that is just right.</span></span></p></section></div><div data-trailer="ch03"><section data-shot="open" data-dur="5"><p class="k">Case Files &middot; RPG</p><h3><span class="L"><span class="zh">晶格神探：微觀密室事件簿</span><span class="en">Lattice Detective: The Microscopic Locked-Room Files</span></span></h3></section><section data-shot="story" data-dur="9"><p class="k"><span class="L"><span class="zh">故事</span><span class="en">Story</span></span></p><p class="ln"><span class="L"><span class="zh">水晶市接連發生六起事件，幕後是神秘組織「灰幕」。</span><span class="en">Six incidents strike Crystal City. Behind them is a secret group, the Grey Veil.</span></span></p><p class="ln"><span class="L"><span class="zh">你帶著 XRD 透鏡與晶格錶，雷警官在耳機另一端支援。</span><span class="en">You carry an XRD lens and a Lattice Watch. Inspector Lei backs you up through an earpiece.</span></span></p><p class="ln"><span class="L"><span class="zh">每一起密室，線索都藏在晶體結構裡。</span><span class="en">In every locked room, the clue is hidden in the crystal structure.</span></span></p></section><section data-shot="cast" data-dur="7"><p class="k"><span class="L"><span class="zh">登場角色</span><span class="en">Characters</span></span></p><h3><span class="L"><span class="zh">水晶市的人們</span><span class="en">The people of Crystal City</span></span></h3><ul><li><b><span class="L"><span class="zh">方格</span><span class="en">Fang Ge</span></span></b><span><span class="L"><span class="zh">主角偵探</span><span class="en">The detective you play</span></span></span></li><li><b><span class="L"><span class="zh">雷警官</span><span class="en">Inspector Lei</span></span></b><span><span class="L"><span class="zh">你的導師</span><span class="en">Your mentor</span></span></span></li><li><b><span class="L"><span class="zh">灰幕首領</span><span class="en">Master of the Grey Veil</span></span></b><span><span class="L"><span class="zh">幕後黑手</span><span class="en">The one behind it all</span></span></span></li></ul></section><section data-shot="mech" data-dur="9"><p class="k"><span class="L"><span class="zh">玩法</span><span class="en">How to play</span></span></p><h3><span class="L"><span class="zh">蒐證・推理・破案</span><span class="en">Investigate, deduce, solve</span></span></h3><ul><li><b><span class="L"><span class="zh">探索現場、蒐集證據</span><span class="en">Explore scenes and collect evidence</span></span></b></li><li><b><span class="L"><span class="zh">運用筆記本、透鏡與公式卡</span><span class="en">Use the notebook, lens and formula cards</span></span></b></li><li><b><span class="L"><span class="zh">限時推理盤</span><span class="en">Timed deduction boards</span></span></b><span><span class="L"><span class="zh">選擇題與數值計算</span><span class="en">Multiple choice and numeric answers</span></span></span></li><li><b><span class="L"><span class="zh">聲望制</span><span class="en">Reputation</span></span></b><span><span class="L"><span class="zh">推理錯誤會扣聲望，歸零即出局</span><span class="en">Wrong deductions cost reputation; at zero you're off the case</span></span></span></li></ul></section><section data-shot="learn" data-dur="7"><p class="k"><span class="L"><span class="zh">你將學到</span><span class="en">You will learn</span></span></p><ul><li><b><span class="L"><span class="zh">晶體與非晶體</span><span class="en">Crystalline vs amorphous</span></span></b></li><li><b><span class="L"><span class="zh">SC・FCC・BCC・HCP</span><span class="en">SC, FCC, BCC, HCP</span></span></b></li><li><b><span class="L"><span class="zh">理論密度</span><span class="en">Theoretical density</span></span></b></li><li><b><span class="L"><span class="zh">米勒指數</span><span class="en">Miller indices</span></span></b></li><li><b><span class="L"><span class="zh">線密度・面密度</span><span class="en">Linear and planar density</span></span></b></li><li><b><span class="L"><span class="zh">異向性</span><span class="en">Anisotropy</span></span></b></li></ul></section><section data-shot="end" data-dur="5"><p class="k">Ch.03</p><h3><span class="L"><span class="zh">準備登陸</span><span class="en">Prepare to land</span></span></h3><p class="ln"><span class="L"><span class="zh">六起密室，等你破案。</span><span class="en">Six locked rooms are waiting.</span></span></p></section></div><div data-trailer="ch04"><section data-shot="open" data-dur="5"><p class="k">Trial of Imperfections &middot; Board game</p><h3><span class="L"><span class="zh">晶界斬鬼錄：缺陷的試煉</span><span class="en">Blade of the Grain Boundary</span></span></h3></section><section data-shot="story" data-dur="8"><p class="k"><span class="L"><span class="zh">故事</span><span class="en">Story</span></span></p><p class="ln"><span class="L"><span class="zh">惡鬼「完美之影」宣稱擁有毫無瑕疵的晶體之軀。</span><span class="en">A demon, the Shadow of Perfection, claims a flawless crystal body.</span></span></p><p class="ln"><span class="L"><span class="zh">你是縮小到原子尺度的見習刀匠，要證明：真實的材料一定有缺陷。</span><span class="en">You are an apprentice swordsmith shrunk to atomic scale. Prove that every real material has defects.</span></span></p></section><section data-shot="cast" data-dur="8"><p class="k"><span class="L"><span class="zh">登場角色</span><span class="en">Characters</span></span></p><h3><span class="L"><span class="zh">四位呼吸流劍士</span><span class="en">Four breathing-style swordsmen</span></span></h3><ul><li><b><span class="L"><span class="zh">Mio</span><span class="en">Mio</span></span></b><span><span class="L"><span class="zh">延性之呼吸</span><span class="en">Ductility</span></span></span></li><li><b><span class="L"><span class="zh">Gantetsu</span><span class="en">Gantetsu</span></span></b><span><span class="L"><span class="zh">強化之呼吸</span><span class="en">Strengthening</span></span></span></li><li><b><span class="L"><span class="zh">Homura</span><span class="en">Homura</span></span></b><span><span class="L"><span class="zh">相變之呼吸</span><span class="en">Phase change</span></span></span></li><li><b><span class="L"><span class="zh">Raika</span><span class="en">Raika</span></span></b><span><span class="L"><span class="zh">固溶之擊</span><span class="en">Solid-solution strike</span></span></span></li></ul></section><section data-shot="mech" data-dur="10"><p class="k"><span class="L"><span class="zh">玩法</span><span class="en">How to play</span></span></p><h3><span class="L"><span class="zh">佔領晶粒，升級缺陷</span><span class="en">Claim grains, upgrade defects</span></span></h3><ul><li><b><span class="L"><span class="zh">擲骰移動，或像差排一樣滑移</span><span class="en">Roll to move, or glide like a dislocation</span></span></b></li><li><b><span class="L"><span class="zh">用玉鋼佔領晶粒</span><span class="en">Spend Tamahagane to claim grains</span></span></b><span><span class="L"><span class="zh">答題通過才能升級：點缺陷 → 線缺陷 → 細晶粒</span><span class="en">Pass a quiz to upgrade: point defects, line defects, fine grains</span></span></span></li><li><b><span class="L"><span class="zh">惡鬼格的應力試煉</span><span class="en">Demon stress tests</span></span></b><span><span class="L"><span class="zh">熱應力、疲勞、潛變、氫脆……</span><span class="en">Thermal stress, fatigue, creep, hydrogen embrittlement</span></span></span></li><li><b><span class="L"><span class="zh">最終決戰</span><span class="en">Final battle</span></span></b><span><span class="L"><span class="zh">12 回合內破除 0D 到 3D 四道封印</span><span class="en">Break the four seals, 0D to 3D, within 12 rounds</span></span></span></li></ul></section><section data-shot="learn" data-dur="7"><p class="k"><span class="L"><span class="zh">你將學到</span><span class="en">You will learn</span></span></p><ul><li><b><span class="L"><span class="zh">缺陷的維度分類</span><span class="en">Defects by dimension</span></span></b></li><li><b><span class="L"><span class="zh">空位平衡濃度</span><span class="en">Equilibrium vacancies</span></span></b></li><li><b><span class="L"><span class="zh">Hume-Rothery 規則</span><span class="en">Hume-Rothery rules</span></span></b></li><li><b><span class="L"><span class="zh">差排與布格向量</span><span class="en">Dislocations, Burgers vector</span></span></b></li><li><b><span class="L"><span class="zh">晶界與晶粒大小</span><span class="en">Grain boundaries, grain size</span></span></b></li></ul></section><section data-shot="end" data-dur="5"><p class="k">Ch.04</p><h3><span class="L"><span class="zh">準備登陸</span><span class="en">Prepare to land</span></span></h3><p class="ln"><span class="L"><span class="zh">拔刀，斬破完美的幻影。</span><span class="en">Draw your blade and cut through the illusion of perfection.</span></span></p></section></div><div data-trailer="ch06"><section data-shot="open" data-dur="5"><p class="k">Arena &middot; MOBA</p><h3><span class="L"><span class="zh">鋼鐵練習生：鈦扯了吧！</span><span class="en">Steel Trainee: Ti-tally Stretched!</span></span></h3></section><section data-shot="story" data-dur="8"><p class="k"><span class="L"><span class="zh">故事</span><span class="en">Story</span></span></p><p class="ln"><span class="L"><span class="zh">金屬英雄齊聚鈦鋼星的競技場。</span><span class="en">Metal heroes gather in the arena of Titan Steel.</span></span></p><p class="ln"><span class="L"><span class="zh">拉得越長、撐得越久，才是真正的強者。</span><span class="en">Whoever stretches farther and holds out longer is the true champion.</span></span></p></section><section data-shot="mech" data-dur="9"><p class="k"><span class="L"><span class="zh">玩法</span><span class="en">How to play</span></span></p><h3><span class="L"><span class="zh">金屬英雄大亂鬥</span><span class="en">Metal heroes brawl</span></span></h3><ul><li><b><span class="L"><span class="zh">選擇一位金屬英雄</span><span class="en">Pick a metal hero</span></span></b></li><li><b><span class="L"><span class="zh">用材料的性質發揮各自的長處</span><span class="en">Fight with each metal's own properties</span></span></b></li><li><b><span class="L"><span class="zh">與隊友合作攻下對手陣地</span><span class="en">Team up to take the enemy base</span></span></b></li></ul></section><section data-shot="learn" data-dur="8"><p class="k"><span class="L"><span class="zh">你將學到</span><span class="en">You will learn</span></span></p><ul><li><b><span class="L"><span class="zh">應力與應變</span><span class="en">Stress and strain</span></span></b></li><li><b><span class="L"><span class="zh">彈性模數</span><span class="en">Elastic modulus</span></span></b></li><li><b><span class="L"><span class="zh">降伏強度</span><span class="en">Yield strength</span></span></b></li><li><b><span class="L"><span class="zh">抗拉強度</span><span class="en">Tensile strength</span></span></b></li><li><b><span class="L"><span class="zh">延性</span><span class="en">Ductility</span></span></b></li><li><b><span class="L"><span class="zh">韌性</span><span class="en">Toughness</span></span></b></li></ul></section><section data-shot="end" data-dur="5"><p class="k">Ch.06</p><h3><span class="L"><span class="zh">準備登陸</span><span class="en">Prepare to land</span></span></h3><p class="ln"><span class="L"><span class="zh">拉伸、降伏、頸縮、斷裂。上場吧。</span><span class="en">Stretch, yield, neck, fracture. Your turn.</span></span></p></section></div><div data-trailer="mid"><section data-shot="open" data-dur="5"><p class="k">Midterm &middot; RTS &times; AR</p><h3><span class="L"><span class="zh">台科夜市・丸丸辦桌大作戰</span><span class="en">Taiwan Tech Night Market: Marumaru Banquet Quest</span></span></h3></section><section data-shot="story" data-dur="8"><p class="k"><span class="L"><span class="zh">故事</span><span class="en">Story</span></span></p><p class="ln"><span class="L"><span class="zh">台科夜市開張，丸丸的辦桌即將開席。</span><span class="en">The Taiwan Tech night market opens, and Marumaru's banquet is about to begin.</span></span></p><p class="ln"><span class="L"><span class="zh">把前六章學到的知識，變成一道道端上桌的好菜。</span><span class="en">Turn everything from the first six chapters into dishes on the table.</span></span></p></section><section data-shot="mech" data-dur="9"><p class="k"><span class="L"><span class="zh">玩法</span><span class="en">How to play</span></span></p><h3><span class="L"><span class="zh">即時戰略 × 擴增實境</span><span class="en">Real-time strategy with AR</span></span></h3><ul><li><b><span class="L"><span class="zh">調度資源，搶時間完成任務</span><span class="en">Manage resources and race the clock</span></span></b></li><li><b><span class="L"><span class="zh">支援 AR，可在真實空間中遊玩</span><span class="en">AR support: play in the space around you</span></span></b></li><li><b><span class="L"><span class="zh">手機建議在新分頁開啟</span><span class="en">On phones, open it in a new tab</span></span></b></li></ul></section><section data-shot="learn" data-dur="7"><p class="k"><span class="L"><span class="zh">你將學到</span><span class="en">You will learn</span></span></p><ul><li><b><span class="L"><span class="zh">原子與鍵結</span><span class="en">Atoms and bonding</span></span></b></li><li><b><span class="L"><span class="zh">晶體結構</span><span class="en">Crystal structures</span></span></b></li><li><b><span class="L"><span class="zh">缺陷</span><span class="en">Imperfections</span></span></b></li><li><b><span class="L"><span class="zh">擴散</span><span class="en">Diffusion</span></span></b></li><li><b><span class="L"><span class="zh">機械性質</span><span class="en">Mechanical properties</span></span></b></li><li><b><span class="L"><span class="zh">期中考古題</span><span class="en">Past midterm questions</span></span></b></li></ul></section><section data-shot="end" data-dur="5"><p class="k">Midterm</p><h3><span class="L"><span class="zh">準備登陸</span><span class="en">Prepare to land</span></span></h3><p class="ln"><span class="L"><span class="zh">提燈亮起，開席。</span><span class="en">Lanterns lit. Let the banquet begin.</span></span></p></section></div></div>
+<div id="msgs" aria-hidden="true"><div data-m="seal-locked"><span class="L"><span class="zh">觀測中</span><span class="en">Observing</span></span></div><div data-m="seal-unseen"><span class="L"><span class="zh">即將點亮</span><span class="en">Coming soon</span></span></div><div data-m="st-visited"><span class="L"><span class="zh">&#9733; 已登陸</span><span class="en">&#9733; Landed</span></span></div><div data-m="st-open"><span class="L"><span class="zh">未登陸</span><span class="en">Not yet</span></span></div><div data-m="render-gpu"><span class="L"><span class="zh">目前使用 WebGPU 硬體加速。</span><span class="en">Using WebGPU hardware acceleration.</span></span></div><div data-m="render-soft"><span class="L"><span class="zh">目前使用軟體繪圖（Canvas 2D）。</span><span class="en">Using software rendering (Canvas 2D).</span></span></div><div data-m="render-gpu-none"><span class="L"><span class="zh">這個瀏覽器不支援 WebGPU，已改用軟體繪圖。</span><span class="en">This browser does not support WebGPU. Switched to software rendering.</span></span></div><div data-m="render-gpu-fail"><span class="L"><span class="zh">WebGPU 無法啟動，已改用軟體繪圖。</span><span class="en">WebGPU could not start. Switched to software rendering.</span></span></div><div data-m="fs-none"><span class="L"><span class="zh">這個裝置不支援網頁全螢幕。iPhone 可用 Safari 的「分享 → 加入主畫面」，或在新分頁開啟本頁。</span><span class="en">Full screen is not available on this device. On iPhone, use Safari's Share, then Add to Home Screen, or open this page in a new tab.</span></span></div><div data-m="reset-confirm"><span class="L"><span class="zh">確定清除？再按一次</span><span class="en">Clear? Tap again</span></span></div><div data-m="reset-done"><span class="L"><span class="zh">已清除登陸紀錄</span><span class="en">Landing record cleared</span></span></div><div data-m="guard-modified"><div class="g"><b>AEML, NTUST</b><p><span class="L b"><span class="zh">偵測到原始碼遭修改，請使用原版。</span><span class="en">Source code modification detected. Please use the original version.</span></span></p><a class="s-btn" data-home href="#"><span class="L"><span class="zh">前往原版</span><span class="en">Open the original</span></span></a></div></div><div data-m="guard-host"><div class="g"><b>AEML, NTUST</b><p><span class="L b"><span class="zh">此頁面僅授權在原始網址使用。</span><span class="en">This page is licensed for use only at its original address.</span></span></p><a class="s-btn" data-home href="#"><span class="L"><span class="zh">前往原版</span><span class="en">Open the original</span></span></a></div></div></div>
+<script>
+/*! Materia Cosmos | Engineering Materials course map
+ *  (c) 2026 AEML, NTUST - Advanced Engineering Materials Laboratory,
+ *  Dept. of Civil and Construction Engineering, National Taiwan University of Science and Technology.
+ *  All rights reserved. Unauthorized copying or modification is prohibited.
+ *  This script is ASCII-only on purpose: every human-readable text lives in the HTML and is switched by this script. */
+(function () {
+"use strict";
+var AEML_SIG = "AEML, NTUST";
+var AEML_HASH = "5e315f42";
+var AEML_TEXT = "276d41ef";
+var CFG = {"LOCK":true,"ALLOW_FILE":false,"ALLOWED_HOSTS":["chuntaoc.github.io","localhost","127.0.0.1"],"ALLOWED_EMBEDDERS":["news.concrete.tw","blogger.com","blogspot.com","concrete.tw"],"HOME":"https://chuntaoc.github.io/materia-cosmos/","MANUAL":"manual.html","LINK_TARGET":"_top","IMG":"assets/img/","NODES":[{"id":"core","kind":"core","slot":null,"img":"star","d":230,"no":"Engineering Materials","music":"map"},{"id":"ch01","slot":0,"status":"open","img":"ch01","d":200,"no":"Ch.01","music":"forge","url":"https://news.concrete.tw/2026/10/sandbox-astroforge-crystal-awakening.html"},{"id":"ch02","slot":1,"status":"open","img":"ch02","d":210,"no":"Ch.02","music":"detective","url":"https://news.concrete.tw/2026/10/udisplaynone-valence-e-score-0-time-000.html"},{"id":"ch03","slot":2,"status":"open","img":"ch03","d":200,"no":"Ch.03","music":"mystery","url":"https://news.concrete.tw/2026/10/rpg.html"},{"id":"ch04","slot":3,"status":"open","img":"ch04","d":200,"no":"Ch.04","music":"battle","url":"https://news.concrete.tw/2026/10/tbg.html"},{"id":"ch05","slot":4,"status":"locked","img":"ch05","d":210,"no":"Ch.05"},{"id":"ch06","slot":5,"status":"open","img":"ch06","d":215,"no":"Ch.06","music":"arena","url":"https://news.concrete.tw/2026/10/moba-steel-trainee-ti-tally-stretched.html"},{"id":"mid","slot":6,"status":"open","kind":"station","img":"station","d":230,"no":"Midterm","music":"festival","url":"https://news.concrete.tw/2026/10/pointer-eventsauto.html"},{"id":"ch07","slot":7,"status":"unseen","d":120,"no":"Ch.07"},{"id":"ch08","slot":8,"status":"unseen","d":120,"no":"Ch.08"},{"id":"ch09","slot":9,"status":"unseen","d":120,"no":"Ch.09"},{"id":"final","slot":10,"status":"locked","kind":"station","final":true,"img":"station","d":200,"no":"Final"}]};
+
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+var SELF = document.currentScript ? document.currentScript.textContent : "";
+
+/* ======================= AEML guard ======================= */
+function fnv(s) { var h = 0x811c9dc5; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return ("0000000" + h.toString(16)).slice(-8); }
+function guard(kind) {
+  var g = $("#aeml-guard"); if (!g) { document.body.innerHTML = ""; g = document.createElement("div"); g.id = "aeml-guard"; document.body.appendChild(g); }
+  var src = $("#msgs [data-m='guard-" + kind + "']");
+  g.innerHTML = src ? src.innerHTML : "<div class='g'><b>AEML, NTUST</b><p>Source code modification detected.</p></div>";
+  var a = g.querySelector("a[data-home]"); if (a) a.href = CFG.HOME;
+  g.hidden = false; window.__aemlHalt = true;
+  try { AU.stopAll(); } catch (e) {}
+}
+function creditOK() {
+  var c = document.getElementById("aeml-credit");
+  if (!c || c.textContent.indexOf(AEML_SIG) < 0) return false;
+  var cs = getComputedStyle(c);
+  return cs.display !== "none" && cs.visibility !== "hidden" && parseFloat(cs.opacity) > 0.4;
+}
+function textSig() {
+  var parts = [], n, w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: function (t) { return t.parentNode.closest("script,style") ? 2 : 1; } });
+  while ((n = w.nextNode())) parts.push(n.nodeValue);
+  $$("template").forEach(function (t) { parts.push(t.content.textContent); });
+  return fnv(parts.join("").replace(/\s+/g, ""));
+}
+function integrityOK() {
+  if (!SELF) return true;
+  var body = SELF.replace(/\r\n?/g, "\n").replace(/AEML_HASH = "[0-9a-f]*"/, 'AEML_HASH = ""').replace(/AEML_TEXT = "[0-9a-f]*"/, 'AEML_TEXT = ""');
+  var ts = textSig(); window.__aemlText = ts;
+  if (AEML_TEXT && ts !== AEML_TEXT) return false;
+  if (AEML_HASH && fnv(body) !== AEML_HASH) return false;
+  var m = document.querySelector('meta[name="author"]');
+  if (!m || m.content.indexOf(AEML_SIG) < 0) return false;
+  var w = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT), ok = false, n;
+  while ((n = w.nextNode())) { if (n.nodeValue.indexOf(AEML_SIG) >= 0) { ok = true; break; } }
+  return ok && creditOK();
+}
+function hostOK() {
+  if (!CFG.LOCK) return true;
+  var h = location.hostname, list = CFG.ALLOWED_HOSTS;
+  if (!h) return !!CFG.ALLOW_FILE;
+  var okHost = list.some(function (x) { return h === x || h.slice(-(x.length + 1)) === "." + x; });
+  if (!okHost) return false;
+  if (window.top !== window.self) {
+    var anc = location.ancestorOrigins, origins = [];
+    if (anc && anc.length) { for (var i = 0; i < anc.length; i++) origins.push(anc[i]); }
+    else if (document.referrer) origins.push(document.referrer);
+    return origins.every(function (o) {
+      var hh = ""; try { hh = new URL(o).hostname; } catch (e) { return false; }
+      return CFG.ALLOWED_EMBEDDERS.concat(CFG.ALLOWED_HOSTS).some(function (x) { return hh === x || hh.slice(-(x.length + 1)) === "." + x; });
+    });
+  }
+  return true;
+}
+if (!integrityOK()) { guard("modified"); return; }
+if (!hostOK()) { guard("host"); return; }
+try { console.log("%c Materia Cosmos %c (c) 2026 " + AEML_SIG + " ", "background:#d8b56c;color:#0a1029;padding:2px 4px", "color:#d8b56c"); } catch (e) {}
+var watch = new MutationObserver(function () { if (!window.__aemlHalt && !creditOK()) guard("modified"); });
+watch.observe(document.getElementById("aeml-credit"), { subtree: true, childList: true, attributes: true, characterData: true });
+watch.observe(document.body, { childList: true });
+setInterval(function () { if (!window.__aemlHalt && !creditOK()) guard("modified"); }, 4000);
+
+/* ======================= settings ======================= */
+var store = {
+  get: function (k, d) { try { var v = localStorage.getItem("mc2:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set: function (k, v) { try { localStorage.setItem("mc2:" + k, JSON.stringify(v)); } catch (e) {} }
+};
+var DEF = { lang: "zh", bgm: false, sfx: true, vol: 0.8, mvol: 0.7, svol: 0.9, render: "gpu", quality: "fluid", story: true };
+var S = {}; Object.keys(DEF).forEach(function (k) { S[k] = store.get(k, DEF[k]); });
+S.fs = false;
+function save(k, v) { S[k] = v; if (k !== "fs") store.set(k, v); }
+var visited = new Set(store.get("visited", []));
+var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function msg(id) { var m = $("#msgs [data-m='" + id + "']"); return m ? m.innerHTML : ""; }
+var toastT = 0;
+function toast(id) { var t = $("#toast"); t.innerHTML = msg(id); t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove("on"); }, 4200); }
+function applyLang() { var r = document.documentElement; r.dataset.lang = S.lang; r.lang = S.lang === "en" ? "en" : "zh-Hant"; syncSeg("lang", S.lang); }
+
+/* ======================= images by quality ======================= */
+var QUAL = { fluid: { dir: "lo/", bg: "lo/bg.webp", scale: 1, parts: 700, cpuParts: 380 },
+  standard: { dir: "lo/", bg: "bg-1920.webp", scale: 1.5, parts: 1400, cpuParts: 650 },
+  high: { dir: "hi/", bg: "hi/bg.webp", scale: 2, parts: 2600, cpuParts: 950, minW: 2560 } };
+function img(name) { return CFG.IMG + QUAL[S.quality].dir + name + ".webp"; }
+function applyImages() {
+  $("#sky").style.backgroundImage = "url(" + CFG.IMG + QUAL[S.quality].bg + ")";
+  $$("img[data-img]").forEach(function (e) { e.src = img(e.dataset.img); });
+}
+
+/* ======================= audio: 8 instrument tracks + drum kit, stereo ======================= */
+var AU = {
+  ctx: null, tracks: {}, timer: 0, sc: null, step: 0, bar: 0, next: 0,
+  init: function () {
+    if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume(); return; }
+    var C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+    var c = this.ctx = new C();
+    this.master = c.createGain(); this.master.gain.value = S.vol; this.master.connect(c.destination);
+    this.comp = c.createDynamicsCompressor(); this.comp.threshold.value = -14; this.comp.ratio.value = 3; this.comp.connect(this.master);
+    this.music = c.createGain(); this.music.gain.value = S.bgm ? S.mvol : 0; this.music.connect(this.comp);
+    this.sfx = c.createGain(); this.sfx.gain.value = S.sfx ? S.svol : 0; this.sfx.connect(this.comp);
+    var len = c.sampleRate * 3.4, ir = c.createBuffer(2, len, c.sampleRate);
+    for (var ch = 0; ch < 2; ch++) { var d = ir.getChannelData(ch); for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+    this.verb = c.createConvolver(); this.verb.buffer = ir; var vg = c.createGain(); vg.gain.value = 0.42; this.verb.connect(vg); vg.connect(this.comp);
+    var nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), nd = nb.getChannelData(0); for (i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1; this.noiseBuf = nb;
+    var self = this;
+    [["koto", -0.35, 0.3], ["shamisen", 0.45, 0.2], ["shaku", -0.15, 0.45], ["sho", 0.1, 0.45], ["strings", 0, 0.35],
+     ["bass", 0, 0.08], ["bells", 0.6, 0.55], ["harp", -0.6, 0.4], ["drums", 0, 0.18]].forEach(function (t) {
+      var g = c.createGain(); g.gain.value = 0;
+      var p = c.createStereoPanner ? c.createStereoPanner() : null;
+      if (p) { p.pan.value = t[1]; g.connect(p); p.connect(self.music); } else g.connect(self.music);
+      var s = c.createGain(); s.gain.value = t[2]; g.connect(s); s.connect(self.verb);
+      self.tracks[t[0]] = { gain: g, level: 0 };
+    });
+    this.setScene(this.pendingName || "title");
+    if (S.bgm) this.start();
+  },
+  pan: function (node, v, out) { var c = this.ctx; if (c.createStereoPanner) { var p = c.createStereoPanner(); p.pan.value = v; node.connect(p); p.connect(out); } else node.connect(out); },
+  env: function (g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); },
+  osc: function (type, f, t, a, peak, dec, out, det) {
+    var c = this.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; if (det) o.detune.value = det;
+    this.env(g, t, a, peak, dec); o.connect(g); g.connect(out); o.start(t); o.stop(t + a + dec + 0.05); return o;
+  },
+  noise: function (t, dur, f0, f1, q, peak, type, out, a) {
+    var c = this.ctx, s = c.createBufferSource(); s.buffer = this.noiseBuf; s.playbackRate.value = 0.8 + Math.random() * 0.4;
+    var f = c.createBiquadFilter(); f.type = type || "bandpass"; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    var g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + (a || 0.005)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  },
+  hz: function (m) { return 440 * Math.pow(2, (m - 69) / 12); },
+  /* ---- instruments ---- */
+  I: {
+    koto: function (A, t, m, v, out) { var f = A.hz(m); A.osc("triangle", f, t, 0.004, 0.5 * v, 2.2, out); A.osc("sine", f * 2, t, 0.003, 0.16 * v, 1.0, out); A.osc("sine", f * 3.01, t, 0.002, 0.06 * v, 0.4, out); },
+    shamisen: function (A, t, m, v, out) {
+      var c = A.ctx, o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain(); o.type = "sawtooth"; o.frequency.value = A.hz(m);
+      f.type = "bandpass"; f.frequency.value = 1700; f.Q.value = 1.6; A.env(g, t, 0.002, 0.5 * v, 0.45); o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t + 0.55);
+      A.noise(t, 0.03, 3000, 3000, 2, 0.12 * v, "bandpass", out);
+    },
+    shaku: function (A, t, m, v, out, dur) {
+      var c = A.ctx, o = c.createOscillator(), g = c.createGain(), l = c.createOscillator(), lg = c.createGain();
+      o.type = "sine"; o.frequency.value = A.hz(m); l.frequency.value = 5.2; lg.gain.value = 0; lg.gain.setValueAtTime(0, t + 0.5); lg.gain.linearRampToValueAtTime(A.hz(m) * 0.006, t + 1.2);
+      l.connect(lg); lg.connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.32 * v, t + 0.35); g.gain.setValueAtTime(0.3 * v, t + dur * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(out); o.start(t); l.start(t); o.stop(t + dur + 0.05); l.stop(t + dur + 0.05);
+      A.noise(t, Math.min(dur, 1.4), A.hz(m) * 2, A.hz(m) * 2, 3, 0.05 * v, "bandpass", out, 0.2);
+    },
+    sho: function (A, t, ms, v, out, dur) {
+      ms.forEach(function (m) {
+        var c = A.ctx, o = c.createOscillator(), g = c.createGain(); o.type = "sine"; o.frequency.value = A.hz(m);
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.09 * v, t + 1.4); g.gain.setValueAtTime(0.09 * v, t + dur - 1.2); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+      });
+    },
+    strings: function (A, t, ms, v, out, dur) {
+      var c = A.ctx, f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1300; f.connect(out);
+      ms.forEach(function (m, i) {
+        [-9, 9].forEach(function (det, k) {
+          var o = c.createOscillator(), g = c.createGain(); o.type = "sawtooth"; o.frequency.value = A.hz(m); o.detune.value = det;
+          g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.045 * v, t + 0.9); g.gain.setValueAtTime(0.045 * v, t + dur - 0.9); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.4);
+          o.connect(g); A.pan(g, k ? 0.7 : -0.7, f); o.start(t); o.stop(t + dur + 0.5);
+        });
+      });
+    },
+    bass: function (A, t, m, v, out, dur) { var f = A.hz(m); A.osc("sine", f, t, 0.01, 0.9 * v, dur, out); A.osc("triangle", f, t, 0.01, 0.25 * v, dur * 0.5, out); },
+    bells: function (A, t, m, v, out) { var f = A.hz(m); [1, 2.76, 5.4].forEach(function (p, i) { A.osc("sine", f * p, t, 0.002, 0.3 * v / (i + 1), 2.6 - i * 0.7, out); }); },
+    harp: function (A, t, m, v, out) { var f = A.hz(m); A.osc("triangle", f, t, 0.003, 0.42 * v, 1.7, out); A.osc("sine", f * 3, t, 0.002, 0.05 * v, 0.5, out); }
+  },
+  drum: function (voice, t, acc, out) {
+    var v = acc ? 1 : 0.6, c = this.ctx, self = this;
+    if (voice === "taiko") {
+      var o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(115, t); o.frequency.exponentialRampToValueAtTime(46, t + 0.4);
+      self.env(g, t, 0.003, 1.6 * v, 0.9); o.connect(g); g.connect(out); o.start(t); o.stop(t + 1);
+      self.noise(t, 0.15, 400, 120, 1, 0.5 * v, "lowpass", out);
+    } else if (voice === "shime") {
+      var o2 = c.createOscillator(), g2 = c.createGain(); o2.frequency.setValueAtTime(330, t); o2.frequency.exponentialRampToValueAtTime(190, t + 0.08);
+      self.env(g2, t, 0.002, 0.7 * v, 0.16); o2.connect(g2); self.pan(g2, -0.3, out); o2.start(t); o2.stop(t + 0.25);
+      var n = c.createGain(); n.connect(out); self.noise(t, 0.06, 2200, 1200, 1.2, 0.35 * v, "bandpass", n);
+    } else if (voice === "kane") {
+      var kg = c.createGain(); self.pan(kg, 0.4, out);
+      [1, 1.47, 2.09, 2.56].forEach(function (p, i) { self.osc("square", 820 * p, t, 0.001, 0.05 * v / (i + 1), 0.5, kg); });
+    } else if (voice === "hat") {
+      var hg = c.createGain(); self.pan(hg, 0.25, out); self.noise(t, acc ? 0.09 : 0.045, 8000, 7000, 0.8, 0.28 * v, "highpass", hg);
+    } else if (voice === "rim") {
+      var rg = c.createGain(); self.pan(rg, -0.2, out); self.osc("square", 1700, t, 0.001, 0.12 * v, 0.03, rg); self.noise(t, 0.03, 3500, 3500, 3, 0.2 * v, "bandpass", rg);
+    }
+  },
+  /* ---- scenes ---- */
+  SC: {
+    title:     { bpm: 62, root: 62, scale: [0, 1, 5, 7, 8], prog: [0, 0, 3, 2], en: 0.2, dens: 0.3, kit: "none", mix: { sho: 0.9, bells: 0.6, koto: 0.5, strings: 0.45, bass: 0.35, shaku: 0.55 } },
+    map:       { bpm: 74, root: 62, scale: [0, 1, 5, 7, 8], prog: [0, 3, 2, 0], en: 0.3, dens: 0.45, kit: "soft", mix: { koto: 0.8, harp: 0.5, strings: 0.5, bass: 0.55, bells: 0.4, shaku: 0.4, sho: 0.35, drums: 0.4 } },
+    focus:     { bpm: 74, root: 62, scale: [0, 1, 5, 7, 8], prog: [0, 3, 2, 0], en: 0.3, dens: 0.4, kit: "soft", mix: { koto: 0.6, harp: 0.8, strings: 0.6, bass: 0.5, bells: 0.55, shaku: 0.2, sho: 0.45, drums: 0.25 } },
+    warp:      { bpm: 140, root: 62, scale: [0, 1, 5, 7, 8], prog: [0, 0, 1, 2], en: 0.9, dens: 0.4, kit: "warp", mix: { strings: 0.9, bass: 0.85, drums: 1, sho: 0.6, bells: 0.4, shamisen: 0.4 } },
+    arrive:    { bpm: 70, root: 62, scale: [0, 2, 5, 7, 9], prog: [0, 3, 1, 0], en: 0.2, dens: 0.35, kit: "none", mix: { bells: 0.9, sho: 0.7, harp: 0.7, strings: 0.5, koto: 0.45, bass: 0.4 } },
+    forge:     { bpm: 96, root: 57, scale: [0, 1, 5, 7, 8], prog: [0, 3, 0, 2], en: 0.6, dens: 0.5, kit: "march", mix: { shamisen: 0.6, koto: 0.6, strings: 0.6, bass: 0.8, drums: 0.85, bells: 0.4, sho: 0.3, harp: 0.3 } },
+    detective: { bpm: 108, root: 60, scale: [0, 3, 5, 7, 10], prog: [0, 0, 3, 2], en: 0.65, dens: 0.45, kit: "swing", mix: { shamisen: 0.75, bass: 0.9, drums: 0.75, koto: 0.4, bells: 0.35, strings: 0.35, harp: 0.25, shaku: 0.45 } },
+    mystery:   { bpm: 84, root: 59, scale: [0, 1, 5, 7, 8], prog: [0, 2, 3, 1], en: 0.4, dens: 0.4, kit: "soft", mix: { harp: 0.75, bells: 0.7, strings: 0.6, bass: 0.6, shaku: 0.6, koto: 0.4, sho: 0.3, drums: 0.55 } },
+    battle:    { bpm: 128, root: 57, scale: [0, 1, 5, 7, 8], prog: [0, 0, 3, 2], en: 0.9, dens: 0.55, kit: "battle", mix: { shamisen: 0.9, koto: 0.6, strings: 0.7, bass: 0.9, drums: 1, shaku: 0.5, bells: 0.2, sho: 0.3, harp: 0.2 } },
+    arena:     { bpm: 136, root: 57, scale: [0, 3, 5, 7, 10], prog: [0, 3, 2, 4], en: 0.95, dens: 0.5, kit: "battle", mix: { shamisen: 0.8, strings: 0.8, bass: 1, drums: 1, bells: 0.4, koto: 0.3, harp: 0.3, sho: 0.25, shaku: 0.3 } },
+    festival:  { bpm: 118, root: 62, scale: [0, 2, 5, 7, 9], prog: [0, 3, 1, 4], en: 0.8, dens: 0.55, kit: "festival", mix: { koto: 0.8, shamisen: 0.8, bells: 0.6, harp: 0.5, bass: 0.8, drums: 0.9, strings: 0.3, sho: 0.3, shaku: 0.5 } }
+  },
+  KIT: {
+    none: {},
+    soft: { taiko: "x.......o.......", kane: "........x.......", hat: "..o...o...o...o." },
+    march: { taiko: "x...o...x...o.o.", shime: "..o...o...o..oo.", hat: "o.o.o.o.o.o.o.o.", kane: "x..............." },
+    swing: { taiko: "x.........o.....", rim: "....o.......o..o", hat: "o..o..o.o..o..o.", shime: "......o.......o." },
+    battle: { taiko: "x..ox..ox.x.o.oo", shime: "o.oo.oo.o.oo.ooo", hat: "oooooooooooooooo", kane: "x.......x.......", rim: "....o.......o..." },
+    festival: { taiko: "x.....o.x.....o.", shime: "o.o.oo.oo.o.oo.o", kane: "..x...x...x...x.", hat: "o.o.o.o.o.o.o.o." },
+    warp: { taiko: "x.x.x.x.xxxxxxxx", shime: "oooooooooooooooo", hat: "o.o.o.o.o.o.o.o." }
+  },
+  setScene: function (name) {
+    this.pendingName = name; if (!this.ctx) return;
+    var sc = this.SC[name] || this.SC.map, t = this.ctx.currentTime, self = this;
+    Object.keys(this.tracks).forEach(function (k) { var tr = self.tracks[k]; tr.level = sc.mix[k] || 0; tr.gain.gain.cancelScheduledValues(t); tr.gain.gain.setTargetAtTime(tr.level, t, 0.6); });
+    if (!this.sc) this.sc = sc; else this.nextSc = sc;
+    if (name === "warp" || name === "arrive") { this.sc = sc; this.nextSc = null; }
+  },
+  start: function () {
+    if (!this.ctx || this.timer) return; var self = this; this.next = this.ctx.currentTime + 0.1; this.step = 0;
+    this.timer = setInterval(function () { self.tick(); }, 25);
+    this.music.gain.setTargetAtTime(S.mvol, this.ctx.currentTime, 0.4);
+  },
+  stop: function () { if (!this.ctx) return; clearInterval(this.timer); this.timer = 0; this.music.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3); },
+  stopAll: function () { this.stop(); if (this.ctx) this.ctx.close(); },
+  tick: function () {
+    if (document.hidden) { this.next = this.ctx.currentTime + 0.1; return; }
+    while (this.next < this.ctx.currentTime + 0.14) {
+      this.play(this.step, this.next);
+      this.next += 60 / this.sc.bpm / 4;
+      this.step = (this.step + 1) % 16;
+      if (this.step === 0) { this.bar++; if (this.nextSc) { this.sc = this.nextSc; this.nextSc = null; } }
+    }
+  },
+  note: function (deg, oct) { var s = this.sc.scale, n = s.length, o = Math.floor(deg / n), i = ((deg % n) + n) % n; return this.sc.root + s[i] + 12 * (o + oct); },
+  play: function (st, t) {
+    var A = this, sc = this.sc, b = this.bar, cd = sc.prog[b % sc.prog.length], spb = 60 / sc.bpm / 4, R = Math.random, T = this.tracks, I = this.I;
+    var on = function (k) { return T[k] && T[k].level > 0.01; };
+    if (on("bass")) {
+      if (st === 0) I.bass(A, t, this.note(cd, -2), 0.9, T.bass.gain, spb * 7);
+      else if (st === 8) I.bass(A, t, this.note(cd + (sc.en > 0.6 ? 0 : 2), -2), 0.75, T.bass.gain, spb * 6);
+      else if (sc.en > 0.6 && st % 4 === 2 && R() < 0.5) I.bass(A, t, this.note(cd, -2), 0.6, T.bass.gain, spb * 1.5);
+    }
+    if (on("strings") && st === 0) I.strings(A, t, [this.note(cd, -1), this.note(cd + 2, -1), this.note(cd + 4, -1)], 1, T.strings.gain, spb * 16);
+    if (on("sho") && st === 0 && b % 2 === 0) I.sho(A, t, [this.note(cd, 0), this.note(cd + 1, 0), this.note(cd + 2, 0), this.note(cd + 4, 0), this.note(cd + 5, 0)], 1, T.sho.gain, spb * 32);
+    if (on("koto") && st % 2 === 0 && R() < sc.dens * (st % 4 === 0 ? 1 : 0.6)) {
+      var kd = cd + Math.floor(R() * 7) - 2; I.koto(A, t, this.note(kd, 0), 0.7 + R() * 0.3, T.koto.gain);
+      if (R() < 0.15) I.koto(A, t + spb * 0.5, this.note(kd + 1, 0), 0.5, T.koto.gain);
+    }
+    if (on("harp")) {
+      if (b % 2 === 1 && st < 8) I.harp(A, t, this.note(cd + st, -1), 0.6, T.harp.gain);
+      else if (R() < 0.05) I.harp(A, t, this.note(cd + 4, 0), 0.5, T.harp.gain);
+    }
+    if (on("shamisen")) {
+      var hit = sc.en > 0.55 ? [0, 3, 6, 8, 10, 12, 14].indexOf(st) >= 0 && R() < 0.75 : st % 8 === 4 && R() < 0.4;
+      if (hit) I.shamisen(A, t, this.note(cd + [0, 2, 4, 5][Math.floor(R() * 4)], -1), 0.8, T.shamisen.gain);
+    }
+    if (on("shaku")) {
+      if (st === 0 && b % 4 === 0 && R() < 0.85) I.shaku(A, t, this.note(cd + 4, 0), 0.9, T.shaku.gain, spb * 22);
+      if (st === 8 && b % 4 === 2 && R() < 0.6) I.shaku(A, t, this.note(cd + 3, 0), 0.8, T.shaku.gain, spb * 12);
+    }
+    if (on("bells") && (st === 0 || st === 12) && R() < 0.28) I.bells(A, t, this.note(cd + Math.floor(R() * 5), 1), 0.6, T.bells.gain);
+    if (on("drums")) {
+      var kit = this.KIT[sc.kit] || {};
+      Object.keys(kit).forEach(function (v) { var ch = kit[v].charAt(st); if (ch !== ".") A.drum(v, t, ch === "x", T.drums.gain); });
+    }
+  },
+  /* ---- sound effects ---- */
+  fx: function (fn) { if (!this.ctx || !S.sfx) return; try { fn.call(this, this.ctx.currentTime); } catch (e) {} },
+  hover: function () { this.fx(function (t) { this.osc("sine", 2093, t, 0.003, 0.06, 1.1, this.sfx); this.osc("sine", 2093 * 2.76, t + 0.01, 0.002, 0.02, 0.6, this.sfx); }); },
+  click: function () { this.fx(function (t) { var c = this.ctx, o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(1100, t); o.frequency.exponentialRampToValueAtTime(700, t + 0.05); this.env(g, t, 0.002, 0.3, 0.09); o.connect(g); g.connect(this.sfx); o.start(t); o.stop(t + 0.15); }); },
+  open: function () { this.fx(function (t) { var s = this; [62, 67, 70, 74].forEach(function (m, i) { s.I.koto(s, t + i * 0.07, m, 0.4, s.sfx); }); }); },
+  taiko: function () { this.fx(function (t) { this.drum("taiko", t, true, this.sfx); }); },
+  whoosh: function (dur) { this.fx(function (t) { this.noise(t, dur, 220, 4200, 0.9, 0.35, "bandpass", this.sfx, dur * 0.7); }); },
+  bell: function () { this.fx(function (t) { var s = this; [1, 2.76, 5.4, 8.93].forEach(function (p, i) { s.osc("sine", 587.33 * p, t, 0.002, 0.14 / (i + 1), 4.2 - i * 0.8, s.sfx); }); }); },
+  pop: function () { this.fx(function (t) { this.I.harp(this, t, 74 + Math.floor(Math.random() * 3) * 5, 0.35, this.sfx); }); },
+  setVol: function () { if (!this.ctx) return; var t = this.ctx.currentTime; this.master.gain.setTargetAtTime(S.vol, t, 0.1); this.music.gain.setTargetAtTime(S.bgm && this.timer ? S.mvol : 0, t, 0.1); this.sfx.gain.setTargetAtTime(S.sfx ? S.svol : 0, t, 0.1); }
+};
+
+/* ======================= FX renderer: WebGPU (hardware) or Canvas 2D (software) ======================= */
+var FX = {
+  canvas: null, impl: null, kind: "", w: 0, speed: 0.012, zoff: 0, wv: 0, warpLen: 0.02, alpha: 1, count: 600, last: 0,
+  resize: function () {
+    var c = this.canvas, q = QUAL[S.quality], cw = innerWidth, ch = innerHeight, s = Math.min(window.devicePixelRatio || 1, q.scale);
+    if (q.minW) s = Math.max(s, Math.min(2.6, q.minW / cw));
+    if (this.kind === "cpu" && !q.minW) s = Math.min(s, 1.5);
+    c.width = Math.round(cw * s); c.height = Math.round(ch * s); this.px = s;
+    this.count = this.kind === "gpu" ? q.parts : q.cpuParts;
+    var o = $("#resOut"); if (o) o.textContent = c.width + " x " + c.height;
+    if (this.impl && this.impl.resize) this.impl.resize();
+  },
+  use: function (pref) {
+    var self = this;
+    if (this.impl && this.impl.destroy) this.impl.destroy();
+    var old = this.canvas, c = document.createElement("canvas"); c.id = "fx"; if (old && old.classList.contains("front")) c.classList.add("front");
+    if (old) old.replaceWith(c); else $("#stage").after(c);
+    this.canvas = c;
+    var cpu = function (why) { self.kind = "cpu"; self.impl = CPU(c); self.resize(); setStatus(why || "soft"); };
+    if (pref === "gpu" && navigator.gpu) {
+      GPU(c).then(function (impl) { if (self.canvas !== c) return; self.kind = "gpu"; self.impl = impl; self.resize(); setStatus("gpu"); })
+        .catch(function () { if (self.canvas !== c) return; cpu("gpu-fail"); });
+    } else cpu(pref === "gpu" ? "gpu-none" : "soft");
+  },
+  frame: function (now) {
+    var dt = Math.min(0.05, (now - (this.last || now)) / 1000); this.last = now;
+    this.zoff += this.wv * dt;
+    if (this.impl) this.impl.draw(now / 1000);
+  },
+  front: function (on) { this.canvas.classList.toggle("front", on); }
+};
+function setStatus(k) { var e = $("#gpuStatus"); if (e) e.innerHTML = msg("render-" + k); }
+function hsh(n) { var x = Math.sin(n) * 43758.5453123; return x - Math.floor(x); }
+function particle(i, t, W, H, cx, cy, P) {
+  var h1 = hsh(i * 1.13 + 1), h2 = hsh(i * 7.31 + 2), h3 = hsh(i * 3.77 + 3), h4 = hsh(i * 5.1 + 4), px = FX.px;
+  var dy = h2 - t * FX.speed * (0.3 + h3); dy -= Math.floor(dy);
+  var dX = h1 * W + Math.sin(t * 0.4 + h4 * 30) * 6 * px, dY = dy * H;
+  var ds = (0.6 + h3 * 1.6) * px, da = (0.35 + 0.3 * Math.sin(t * 1.5 * (0.5 + h4) + h1 * 20)) * (1 - FX.w);
+  var z = h3 - FX.zoff * (0.6 + 0.4 * h4); z -= Math.floor(z); z = Math.max(z, 0.03); var z2 = Math.min(z + FX.warpLen, 1);
+  var bx = (h1 * 2 - 1) * W * 0.5, by = (h2 * 2 - 1) * H * 0.5, w = FX.w;
+  P.ax = dX + ((cx + bx / z * 0.35) - dX) * w; P.ay = dY + ((cy + by / z * 0.35) - dY) * w;
+  P.bx = dX + ((cx + bx / z2 * 0.35) - dX) * w; P.by = dY + ((cy + by / z2 * 0.35) - dY) * w;
+  P.r = ds + (((1 - z) * 2.6 * px + 0.5) - ds) * w; P.a = (da + Math.pow(1 - z, 1.5) * w) * FX.alpha; P.white = h4 > 0.55;
+}
+function CPU(c) {
+  var g = c.getContext("2d"), P = {};
+  return {
+    draw: function (t) {
+      var W = c.width, H = c.height; g.clearRect(0, 0, W, H); g.globalCompositeOperation = "lighter"; g.lineCap = "round";
+      for (var i = 0; i < FX.count; i++) {
+        particle(i, t, W, H, W / 2, H / 2, P); if (P.a < 0.01) continue;
+        var col = P.white || FX.w > 0.5 ? "236,238,255" : "235,205,140";
+        g.strokeStyle = "rgba(" + col + "," + Math.min(1, P.a).toFixed(3) + ")"; g.lineWidth = P.r * 1.4;
+        g.beginPath(); g.moveTo(P.ax, P.ay); g.lineTo(P.bx + 0.01, P.by); g.stroke();
+      }
+    }
+  };
+}
+var WGSL = [
+"struct U { a:vec4f, b:vec4f, c:vec4f };",
+"@group(0) @binding(0) var<uniform> u:U;",
+"struct VO { @builtin(position) pos:vec4f, @location(0) uv:vec2f, @location(1) len:f32, @location(2) r:f32, @location(3) col:vec4f };",
+"fn h(n:f32)->f32 { return fract(sin(n)*43758.5453123); }",
+"@vertex fn vs(@builtin(vertex_index) vi:u32, @builtin(instance_index) ii:u32)->VO {",
+"  let f=f32(ii); let h1=h(f*1.13+1.0); let h2=h(f*7.31+2.0); let h3=h(f*3.77+3.0); let h4=h(f*5.1+4.0);",
+"  let res=u.a.xy; let cen=u.a.zw; let t=u.b.x; let zoff=u.b.y; let w=u.b.z; let sp=u.b.w; let px=u.c.x;",
+"  let dy=fract(h2 - t*sp*(0.3+h3));",
+"  let dp=vec2f(h1*res.x + sin(t*0.4+h4*30.0)*6.0*px, dy*res.y);",
+"  let ds=(0.6+h3*1.6)*px;",
+"  let da=(0.35+0.3*sin(t*1.5*(0.5+h4)+h1*20.0))*(1.0-w);",
+"  let z=max(fract(h3 - zoff*(0.6+0.4*h4)),0.03); let z2=min(z+u.c.z,1.0);",
+"  let base=(vec2f(h1,h2)*2.0-1.0)*res*0.5;",
+"  let A=mix(dp, cen+base/z*0.35, w); let B=mix(dp, cen+base/z2*0.35, w);",
+"  let r=mix(ds,(1.0-z)*2.6*px+0.5,w); let al=(da+pow(1.0-z,1.5)*w)*u.c.y;",
+"  let d=B-A; let L=length(d); var dir=vec2f(1.0,0.0); if (L>0.001) { dir=d/L; }",
+"  let nrm=vec2f(-dir.y,dir.x);",
+"  var cs=array<vec2f,6>(vec2f(0.0,0.0),vec2f(1.0,0.0),vec2f(0.0,1.0),vec2f(0.0,1.0),vec2f(1.0,0.0),vec2f(1.0,1.0));",
+"  let c=cs[vi]; let along=mix(-r,L+r,c.x); let across=mix(-r,r,c.y);",
+"  let p=A+dir*along+nrm*across;",
+"  var o:VO; o.pos=vec4f(p.x/res.x*2.0-1.0, 1.0-p.y/res.y*2.0, 0.0, 1.0);",
+"  o.uv=vec2f(along,across); o.len=L; o.r=r;",
+"  let k=clamp(step(0.55,h4)+w,0.0,1.0);",
+"  let col=mix(vec3f(0.92,0.80,0.55), vec3f(0.93,0.94,1.0), k);",
+"  let a=clamp(al,0.0,1.0); o.col=vec4f(col*a,a); return o; }",
+"@fragment fn fs(i:VO)->@location(0) vec4f {",
+"  let dx=max(0.0,max(-i.uv.x,i.uv.x-i.len)); let d=length(vec2f(dx,i.uv.y));",
+"  let a=1.0-smoothstep(0.0,max(i.r,0.001),d); return i.col*a; }"
+].join("\n");
+function GPU(c) {
+  return navigator.gpu.requestAdapter({ powerPreference: "high-performance" }).then(function (ad) {
+    if (!ad) throw new Error("no adapter");
+    return ad.requestDevice();
+  }).then(function (dev) {
+    var ctx = c.getContext("webgpu"); if (!ctx) throw new Error("no ctx");
+    var fmt = navigator.gpu.getPreferredCanvasFormat();
+    ctx.configure({ device: dev, format: fmt, alphaMode: "premultiplied" });
+    var mod = dev.createShaderModule({ code: WGSL });
+    var bl = { color: { srcFactor: "one", dstFactor: "one", operation: "add" }, alpha: { srcFactor: "one", dstFactor: "one", operation: "add" } };
+    var pipe = dev.createRenderPipeline({ layout: "auto", vertex: { module: mod, entryPoint: "vs" },
+      fragment: { module: mod, entryPoint: "fs", targets: [{ format: fmt, blend: bl }] }, primitive: { topology: "triangle-list" } });
+    var ub = dev.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    var bg = dev.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ub } }] });
+    var data = new Float32Array(12), dead = false;
+    dev.lost.then(function () { dead = true; if (FX.canvas === c) { FX.kind = "cpu"; FX.impl = CPU(FX.canvas = swapCanvas(c)); FX.resize(); setStatus("gpu-fail"); } });
+    return {
+      resize: function () { ctx.configure({ device: dev, format: fmt, alphaMode: "premultiplied" }); },
+      destroy: function () { dead = true; try { dev.destroy(); } catch (e) {} },
+      draw: function (t) {
+        if (dead) return;
+        var W = c.width, H = c.height;
+        data.set([W, H, W / 2, H / 2, t, FX.zoff, FX.w, FX.speed, FX.px, FX.alpha, FX.warpLen, 0]);
+        dev.queue.writeBuffer(ub, 0, data);
+        var enc = dev.createCommandEncoder();
+        var pass = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), clearValue: { r: 0, g: 0, b: 0, a: 0 }, loadOp: "clear", storeOp: "store" }] });
+        pass.setPipeline(pipe); pass.setBindGroup(0, bg); pass.draw(6, FX.count); pass.end();
+        dev.queue.submit([enc.finish()]);
+      }
+    };
+  });
+}
+function swapCanvas(c) { var n = document.createElement("canvas"); n.id = "fx"; if (c.classList.contains("front")) n.classList.add("front"); c.replaceWith(n); return n; }
+
+/* ======================= map ======================= */
+var W = 3000, H = 2000, CX = 1500, CY = 1000, SQ = 0.72;
+var NODES = CFG.NODES;
+function spiral(t) { var a = (-100 + t * 58) * Math.PI / 180, r = 320 + t * 92; return { x: CX + r * Math.cos(a), y: CY + r * Math.sin(a) * SQ }; }
+NODES.forEach(function (n) { var p = n.slot == null ? { x: CX, y: CY } : spiral(n.slot); n.x = p.x; n.y = p.y; n.data = $("#data [data-node='" + n.id + "']"); });
+var OPEN = NODES.filter(function (n) { return n.status === "open"; });
+function field(n, f) { var e = n.data && n.data.querySelector("[data-f='" + f + "']"); return e ? e.innerHTML : ""; }
+var world = $("#world"), route = $("#route");
+
+(function build() {
+  var lastOpen = Math.max.apply(null, OPEN.map(function (n) { return n.slot; }));
+  var pts = function (a, b) { var s = []; for (var t = a; t <= b + 1e-6; t += 0.05) { var p = spiral(t); s.push(p.x.toFixed(1) + "," + p.y.toFixed(1)); } return s; };
+  var A = pts(-1.2, lastOpen);
+  route.innerHTML =
+    '<defs><radialGradient id="g"><stop offset="0" stop-color="#d8b56c" stop-opacity=".9"/><stop offset="1" stop-color="#d8b56c" stop-opacity="0"/></radialGradient></defs>' +
+    '<ellipse cx="' + CX + '" cy="' + CY + '" rx="1240" ry="' + (1240 * SQ) + '" fill="none" stroke="#d8b56c" stroke-opacity=".08"/>' +
+    '<ellipse cx="' + CX + '" cy="' + CY + '" rx="760" ry="' + (760 * SQ) + '" fill="none" stroke="#d8b56c" stroke-opacity=".07" stroke-dasharray="2 10"/>' +
+    '<polyline points="' + A.join(" ") + '" fill="none" stroke="#d8b56c" stroke-opacity=".18" stroke-width="10" stroke-linecap="round"/>' +
+    '<polyline points="' + A.join(" ") + '" fill="none" stroke="#d8b56c" stroke-opacity=".75" stroke-width="2.2" stroke-linecap="round"/>' +
+    '<polyline points="' + pts(lastOpen, 10.4).join(" ") + '" fill="none" stroke="#d8b56c" stroke-opacity=".32" stroke-width="1.6" stroke-dasharray="3 12" stroke-linecap="round"/>' +
+    '<circle r="5" fill="url(#g)"><animateMotion dur="26s" repeatCount="indefinite" path="M' + A.join(" L") + '"/></circle>';
+  NODES.forEach(function (n, i) {
+    var el = document.createElement("button"); el.type = "button"; el.className = "node"; el.dataset.id = n.id;
+    el.style.left = n.x + "px"; el.style.top = n.y + "px"; el.style.setProperty("--d", n.d + "px"); el.style.setProperty("--delay", (-i * 1.3) + "s");
+    if (n.kind === "core") el.classList.add("core");
+    if (n.status === "locked") el.classList.add("locked");
+    if (n.status === "unseen") el.classList.add("unseen");
+    if (n.final) el.classList.add("station-final");
+    var seal = n.status === "locked" ? msg("seal-locked") : n.status === "unseen" ? msg("seal-unseen") : "";
+    el.innerHTML = '<div class="orb">' + (n.img ? '<img data-img="' + n.img + '" alt="">' : "") + '<span class="halo"></span></div>' +
+      '<div class="tag"><span class="no">' + n.no + '</span><span class="nm">' + field(n, "name") + '</span>' + (seal ? '<span class="seal">' + seal + "</span>" : "") + "</div>";
+    el.addEventListener("pointerenter", function () { if (!drag.moved) AU.hover(); });
+    el.addEventListener("click", function (e) { if (drag.moved) { e.preventDefault(); return; } AU.click(); select(n); });
+    n.el = el; world.appendChild(el);
+  });
+})();
+function paintVisited() {
+  var firstNext = null;
+  NODES.forEach(function (n) { if (!n.el) return; n.el.classList.toggle("visited", visited.has(n.id)); n.el.classList.remove("next");
+    if (!firstNext && n.status === "open" && !visited.has(n.id)) firstNext = n; });
+  if (firstNext && S.story) firstNext.el.classList.add("next");
+  $("#prog").textContent = OPEN.filter(function (n) { return visited.has(n.id); }).length + " / " + OPEN.length;
+}
+
+/* ---------- camera ---------- */
+var stage = $("#stage"), sky = $("#sky"), cam = { x: CX, y: CY, s: 0.5 }, anim = 0;
+function vw() { return stage.clientWidth; } function vh() { return stage.clientHeight; }
+function apply() {
+  world.style.transform = "translate(" + (vw() / 2 - cam.x * cam.s) + "px," + (vh() / 2 - cam.y * cam.s) + "px) scale(" + cam.s + ")";
+  sky.style.transform = "translate(" + ((CX - cam.x) * 0.06) + "px," + ((CY - cam.y) * 0.06) + "px) scale(" + (1 + (cam.s - 0.5) * 0.06) + ")";
+}
+function clampS(s) { return Math.max(0.22, Math.min(1.8, s)); }
+function fitScale(list) {
+  var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  list.forEach(function (n) { x0 = Math.min(x0, n.x - n.d * 0.7); x1 = Math.max(x1, n.x + n.d * 0.7); y0 = Math.min(y0, n.y - n.d * 0.7); y1 = Math.max(y1, n.y + n.d * 0.9); });
+  return { s: clampS(Math.min(vw() / (x1 - x0 + 80), (vh() - 150) / (y1 - y0 + 60))), x: (x0 + x1) / 2, y: (y0 + y1) / 2 + 18 };
+}
+function fly(to, ms) {
+  cancelAnimationFrame(anim); var from = { x: cam.x, y: cam.y, s: cam.s }, t0 = performance.now(); if (reduce) ms = 1;
+  var ease = function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  var step = function (now) { var k = Math.min(1, (now - t0) / ms), e = ease(k);
+    cam.x = from.x + (to.x - from.x) * e; cam.y = from.y + (to.y - from.y) * e; cam.s = from.s * Math.pow(to.s / from.s, e); apply();
+    if (k < 1) anim = requestAnimationFrame(step); };
+  anim = requestAnimationFrame(step);
+}
+function fitAll(ms) { fly(fitScale(NODES), ms); }
+addEventListener("resize", function () { apply(); FX.resize(); });
+
+var drag = { on: false, moved: false, pts: new Map(), last: null, pinch: null };
+stage.addEventListener("pointerdown", function (e) {
+  drag.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (drag.pts.size === 1) { drag.on = true; drag.moved = false; drag.last = { x: e.clientX, y: e.clientY }; }
+  if (drag.pts.size === 2) { var v = Array.from(drag.pts.values()); drag.pinch = { d: Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y), s: cam.s }; }
+});
+addEventListener("pointermove", function (e) {
+  if (!drag.pts.has(e.pointerId)) return; drag.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (drag.pts.size === 2 && drag.pinch) { var v = Array.from(drag.pts.values()); cam.s = clampS(drag.pinch.s * Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y) / drag.pinch.d); drag.moved = true; apply(); return; }
+  if (!drag.on) return; var dx = e.clientX - drag.last.x, dy = e.clientY - drag.last.y;
+  if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+  if (!drag.moved) { drag.moved = true; stage.classList.add("dragging"); cancelAnimationFrame(anim); }
+  cam.x = Math.max(0, Math.min(W, cam.x - dx / cam.s)); cam.y = Math.max(0, Math.min(H, cam.y - dy / cam.s));
+  drag.last = { x: e.clientX, y: e.clientY }; apply();
+});
+function up(e) { drag.pts.delete(e.pointerId); if (drag.pts.size < 2) drag.pinch = null;
+  if (drag.pts.size === 0) { drag.on = false; stage.classList.remove("dragging"); setTimeout(function () { drag.moved = false; }, 0); } }
+addEventListener("pointerup", up); addEventListener("pointercancel", up);
+stage.addEventListener("wheel", function (e) {
+  e.preventDefault(); cancelAnimationFrame(anim);
+  var r = stage.getBoundingClientRect(), mx = e.clientX - r.left - vw() / 2, my = e.clientY - r.top - vh() / 2;
+  var wx = cam.x + mx / cam.s, wy = cam.y + my / cam.s; cam.s = clampS(cam.s * Math.exp(-e.deltaY * 0.0015));
+  cam.x = wx - mx / cam.s; cam.y = wy - my / cam.s; apply();
+}, { passive: false });
+
+/* ---------- card ---------- */
+var card = $("#card"), current = null;
+function small() { return matchMedia("(max-width:640px)").matches; }
+function fill(root, n) {
+  $$("[data-slot]", root).forEach(function (s) {
+    var k = s.dataset.slot;
+    if (k === "no") s.textContent = n.no;
+    else s.innerHTML = field(n, k);
+  });
+}
+function select(n) {
+  current = n; NODES.forEach(function (m) { m.el.classList.toggle("active", m === n); });
+  var s = n.kind === "core" ? 0.62 : 0.95;
+  var off = small() ? { x: 0, y: vh() * 0.22 / s } : { x: -Math.min(390, vw() * 0.3) / 2 / s - 20 / s, y: 0 };
+  fly({ x: n.x - off.x, y: n.y + off.y, s: clampS(s * Math.min(1, vw() / 900 + 0.15)) }, 900);
+  var tpl = n.kind === "core" ? "tpl-core" : n.status === "unseen" ? "tpl-unseen" : "tpl-planet";
+  card.innerHTML = ""; card.appendChild($("#" + tpl).content.cloneNode(true)); fill(card, n);
+  card.dataset.state = n.status === "open" ? (visited.has(n.id) ? "visited" : "open") : "locked";
+  var go = $("[data-go]", card); if (go) { go.disabled = n.status !== "open"; go.onclick = function () { voyage(n); }; }
+  $("[data-back]", card).onclick = function () { AU.click(); closeCard(true); };
+  card.classList.add("open"); card.setAttribute("aria-hidden", "false"); AU.open(); AU.setScene("focus");
+  $("#hint").hidden = true;
+}
+function closeCard(refit) {
+  card.classList.remove("open"); card.setAttribute("aria-hidden", "true"); NODES.forEach(function (m) { m.el.classList.remove("active"); });
+  current = null; $("#hint").hidden = !S.story; AU.setScene("map"); if (refit) fitAll(900);
+}
+stage.addEventListener("click", function (e) { if (!drag.moved && !e.target.closest(".node") && current) closeCard(false); });
+
+/* ---------- voyage: warp -> trailer -> arrival ---------- */
+var busy = false;
+function voyage(n) {
+  if (busy) return; busy = true;
+  AU.taiko(); AU.setScene("warp"); closeCard(false); AU.setScene("warp");
+  var dim = $("#warpDim"), wi = $("#warpImg"); wi.dataset.img = n.img; wi.src = img(n.img);
+  dim.classList.add("on"); FX.front(true);
+  var DUR = reduce ? 400 : 2600, t0 = performance.now();
+  if (!reduce) { AU.whoosh(1.9); setTimeout(function () { AU.taiko(); }, 1250); }
+  var loop = function (now) {
+    var k = Math.min(1, (now - t0) / DUR);
+    FX.w = Math.min(1, k * 4); FX.wv = 0.15 + Math.pow(k, 1.6) * 2.4 * (k < 0.82 ? 1 : Math.max(0.1, (1 - k) / 0.18)); FX.warpLen = 0.02 + k * 0.05;
+    var q = Math.max(0, (k - 0.35) / 0.65); wi.style.opacity = Math.min(1, q * 2); wi.style.transform = "scale(" + (0.05 + Math.pow(q, 2.4) * 1.25) + ")";
+    if (k < 1) requestAnimationFrame(loop); else { flash(); wi.style.opacity = 0; FX.w = 0; FX.wv = 0; trailer(n); }
+  };
+  requestAnimationFrame(loop);
+}
+function flash() { $("#flash").animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }], { duration: 900, easing: "ease-out" }); AU.bell(); }
+
+var TV = { timers: [], raf: 0, on: false };
+function clearTV() { TV.timers.forEach(clearTimeout); TV.timers = []; cancelAnimationFrame(TV.raf); }
+function trailer(n) {
+  var src = $("#data [data-trailer='" + n.id + "']");
+  if (!src) { arrive(n); return; }
+  var shots = $$("section", src), total = shots.reduce(function (a, s) { return a + (+s.dataset.dur || 6); }, 0);
+  var box = $("#trailer"), text = $("#tvText"), pl = $("#tvPlanet"), lines = $("#tvLines"), bar = $("#tvProg i"), clock = $("#tvClock");
+  pl.dataset.img = n.img; pl.src = img(n.img); $("#tvTag").textContent = n.no;
+  box.classList.add("on"); TV.on = true; AU.setScene(n.music || "map");
+  FX.speed = 0.03; FX.alpha = 1;
+  var t0 = performance.now(), idx = -1;
+  var fmt = function (s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); };
+  var tickBar = function (now) { var e = (now - t0) / 1000; bar.style.transform = "scaleX(" + Math.min(1, e / total) + ")"; clock.textContent = fmt(total - e); if (TV.on) TV.raf = requestAnimationFrame(tickBar); };
+  TV.raf = requestAnimationFrame(tickBar);
+  var at = 0;
+  shots.forEach(function (s, i) { TV.timers.push(setTimeout(function () { show(s, i); }, at * 1000)); at += (+s.dataset.dur || 6); });
+  TV.timers.push(setTimeout(function () { endTrailer(n); }, at * 1000));
+  TV.skip = function () { endTrailer(n); };
+  function show(s, i) {
+    idx = i; var type = s.dataset.shot, dur = (+s.dataset.dur || 6) * 1000;
+    text.dataset.type = type; text.innerHTML = s.innerHTML; lines.innerHTML = "";
+    var parts = $$(".k,h3,.ln,li", text), d = 0;
+    parts.forEach(function (p) { p.classList.add("rise"); p.style.animationDelay = d + "s"; d += p.tagName === "LI" ? (type === "learn" ? 0.55 : 1.1) : (p.classList.contains("ln") ? 1.7 : 0.35); });
+    $$("li", text).forEach(function (li, k) { TV.timers.push(setTimeout(function () { AU.pop(); }, (parseFloat(li.style.animationDelay) || 0) * 1000)); });
+    if (i > 0) AU.whoosh(0.8);
+    if (type === "open" || type === "end") AU.taiko();
+    var K = [];
+    if (type === "open") { K = [{ transform: "scale(.15)", opacity: 0 }, { transform: "scale(.7)", opacity: 1, offset: 0.5 }, { transform: "scale(.85) translateY(-8%)", opacity: 1 }]; FX.w = 0.55; FX.wv = 0.25; }
+    else if (type === "story") { K = [{ transform: "translate(40%,0) scale(1.1)", opacity: 0.8 }, { transform: "translate(34%,-4%) scale(1.25)", opacity: 0.8 }]; FX.w = 0; FX.speed = 0.02; }
+    else if (type === "cast" || type === "mech") { K = [{ transform: "translate(-42%,-8%) scale(.75)", opacity: 0.7 }, { transform: "translate(-38%,-12%) scale(.85)", opacity: 0.7 }]; FX.w = 0; FX.speed = 0.035; }
+    else if (type === "learn") { K = [{ transform: "scale(.45)", opacity: 0.9 }, { transform: "scale(.52) rotate(6deg)", opacity: 0.9 }]; FX.w = 0; FX.speed = 0.015; placeChips(); }
+    else { K = [{ transform: "scale(.5)", opacity: 0.6 }, { transform: "scale(1.05)", opacity: 1 }]; FX.w = 0.3; FX.wv = 0.4; }
+    if (small() && (type === "story" || type === "cast" || type === "mech")) K = K.map(function (k) { return { transform: "translate(0,-28%) scale(.62)", opacity: 0.55 }; });
+    pl.animate(K, { duration: reduce ? 1 : dur, fill: "forwards", easing: "ease-in-out" });
+  }
+  function placeChips() {
+    var lis = $$("li", text), N = lis.length, rx = small() ? 28 : 31, ry = small() ? 24 : 25, svg = "";
+    lis.forEach(function (li, k) {
+      var a = -Math.PI / 2 + k * 2 * Math.PI / N + 0.3, x = 50 + rx * Math.cos(a), y = 57 + ry * Math.sin(a);
+      li.style.left = x + "%"; li.style.top = y + "%";
+      svg += '<line x1="50%" y1="57%" x2="' + x + '%" y2="' + y + '%" stroke="#d8b56c" stroke-opacity=".35" stroke-dasharray="2 6"/>';
+    });
+    lines.innerHTML = svg;
+  }
+}
+function endTrailer(n) {
+  if (!TV.on) return; TV.on = false; clearTV();
+  $("#trailer").classList.remove("on"); FX.speed = 0.012; FX.w = 0; FX.wv = 0; arrive(n);
+}
+function arrive(n) {
+  flash(); AU.setScene("arrive");
+  setTimeout(function () { $("#warpDim").classList.remove("on"); FX.front(false); }, 300);
+  var ai = $("#aImg"); ai.dataset.img = n.img; ai.src = img(n.img);
+  $("#aName").innerHTML = field(n, "name"); $("#aTitle").innerHTML = n.no + " &nbsp; " + field(n, "title");
+  var line = $("#aLine"); line.innerHTML = S.story ? field(n, "line") : ""; line.classList.remove("typing"); void line.offsetWidth; if (S.story && !reduce) line.classList.add("typing");
+  var go = $("#aGo"); go.href = n.url; go.target = CFG.LINK_TARGET;
+  go.onclick = function () { visited.add(n.id); store.set("visited", Array.from(visited)); paintVisited(); AU.click(); };
+  $("#arrive").classList.add("on"); current = n; busy = false;
+  setTimeout(function () { go.focus({ preventScroll: true }); }, 400);
+}
+function backToMap() {
+  $("#arrive").classList.remove("on"); AU.click(); var n = current; current = null; AU.setScene("map"); $("#hint").hidden = !S.story;
+  if (n) { cam = { x: n.x, y: n.y, s: 1.6 }; apply(); fitAll(1400); }
+}
+$("#aBack").onclick = backToMap;
+$("#tvSkip").onclick = function () { AU.click(); if (TV.skip) TV.skip(); };
+
+/* ======================= list + settings ======================= */
+function renderList() {
+  var box = $("#listRows"); box.innerHTML = "";
+  NODES.filter(function (n) { return n.kind !== "core"; }).forEach(function (n) {
+    var open = n.status === "open", row = document.createElement(open ? "button" : "div");
+    row.className = "l-row" + (open ? "" : " off"); if (open) row.type = "button";
+    var st = open ? (visited.has(n.id) ? '<span class="st ok">' + msg("st-visited") + "</span>" : '<span class="st">' + msg("st-open") + "</span>")
+      : '<span class="st">' + msg(n.status === "unseen" ? "seal-unseen" : "seal-locked") + "</span>";
+    row.innerHTML = (n.img ? '<img data-img="' + n.img + '" src="' + img(n.img) + '" alt="">' : '<span class="dot">&#10022;</span>') +
+      '<span class="t"><b>' + n.no + " &nbsp;" + (field(n, "title") || field(n, "name")) + "</b><small>" + field(n, "name") + (field(n, "genre") ? " &middot; " + field(n, "genre") : "") + "</small></span>" + st;
+    if (open) row.onclick = function () { $("#list").hidden = true; select(n); };
+    box.appendChild(row);
+  });
+}
+function openPanel(id) { AU.click(); if (id === "#list") renderList(); $(id).hidden = false; var f = $(id + " .p-head button"); if (f) f.focus(); }
+function closePanels() { $("#list").hidden = true; $("#settings").hidden = true; }
+$$(".overlay").forEach(function (o) { o.addEventListener("click", function (e) { if (e.target === o) { o.hidden = true; } }); });
+$$("[data-close]").forEach(function (b) { b.onclick = function () { AU.click(); b.closest(".overlay").hidden = true; }; });
+$("#btnFit").onclick = function () { AU.click(); if (current) closeCard(false); fitAll(900); };
+$("#btnList").onclick = function () { openPanel("#list"); };
+$$("[data-open-settings]").forEach(function (b) { b.onclick = function () { openPanel("#settings"); }; });
+
+function syncSeg(name, val) { $$("[data-seg='" + name + "'] button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.v === val)); }); }
+function syncTog(name, val) { $$("[data-tog='" + name + "']").forEach(function (b) { b.setAttribute("aria-pressed", String(!!val)); }); }
+$$("[data-seg]").forEach(function (g) {
+  $$("button", g).forEach(function (b) { b.onclick = function () { AU.click(); setOpt(g.dataset.seg, b.dataset.v); }; });
+});
+$$("[data-tog]").forEach(function (b) { b.onclick = function () { AU.init(); setOpt(b.dataset.tog, !S[b.dataset.tog]); AU.click(); }; });
+function setOpt(k, v) {
+  if (k === "fs") { toggleFS(v); return; }
+  save(k, v);
+  if (k === "lang") applyLang();
+  else if (k === "bgm") { AU.init(); if (v) { AU.start(); } else AU.stop(); syncTog("bgm", v); }
+  else if (k === "sfx") { AU.setVol(); syncTog("sfx", v); }
+  else if (k === "render") { syncSeg("render", v); FX.use(v); }
+  else if (k === "quality") { syncSeg("quality", v); applyImages(); FX.resize(); }
+  else if (k === "story") { syncTog("story", v); $("#hint").hidden = !v || !!current; paintVisited(); }
+}
+[["vol", "#sVol"], ["mvol", "#sMus"], ["svol", "#sSfx"]].forEach(function (p) {
+  var inp = $(p[1]), out = $(p[1] + "Out"); inp.value = S[p[0]]; out.textContent = Math.round(S[p[0]] * 100);
+  inp.oninput = function () { save(p[0], +inp.value); out.textContent = Math.round(inp.value * 100); AU.setVol(); };
+});
+var armed = false;
+$("#resetBtn").onclick = function () {
+  if (!armed) { armed = true; $("#resetBtn").innerHTML = msg("reset-confirm"); return; }
+  visited.clear(); store.set("visited", []); paintVisited(); armed = false; $("#resetBtn").innerHTML = msg("reset-done");
+};
+
+/* ---------- fullscreen ---------- */
+function fsEl() { return document.fullscreenElement || document.webkitFullscreenElement; }
+function toggleFS(want) {
+  var el = document.documentElement;
+  if (want) {
+    var rq = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!rq) { toast("fs-none"); syncTog("fs", false); return; }
+    try { var p = rq.call(el); if (p && p.catch) p.catch(function () { toast("fs-none"); syncTog("fs", false); }); } catch (e) { toast("fs-none"); }
+  } else if (fsEl()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+}
+["fullscreenchange", "webkitfullscreenchange"].forEach(function (ev) { document.addEventListener(ev, function () { S.fs = !!fsEl(); syncTog("fs", S.fs); setTimeout(function () { apply(); FX.resize(); }, 200); }); });
+$$("[data-fs]").forEach(function (b) { b.onclick = function () { AU.init(); AU.click(); toggleFS(!fsEl()); }; });
+
+addEventListener("keydown", function (e) {
+  if (e.key !== "Escape") return;
+  if (TV.on) { if (TV.skip) TV.skip(); return; }
+  if (!$("#list").hidden || !$("#settings").hidden) { closePanels(); return; }
+  if ($("#arrive").classList.contains("on")) { backToMap(); return; }
+  if (current) closeCard(true);
+});
+
+/* ======================= boot ======================= */
+applyLang(); applyImages();
+syncTog("bgm", S.bgm); syncTog("sfx", S.sfx); syncTog("story", S.story); syncTog("fs", false);
+syncSeg("render", S.render); syncSeg("quality", S.quality);
+paintVisited(); $("#hint").hidden = true;
+FX.use(S.render);
+(function loop(now) { FX.frame(now); requestAnimationFrame(loop); })(performance.now());
+cam = fitScale(NODES); apply();
+$$("a[data-manual]").forEach(function (a) { a.href = CFG.MANUAL; });
+
+var introDone = false;
+function finishIntro() {
+  if (introDone) return; introDone = true; $("#skip").hidden = true; $("#narr").classList.add("fade");
+  setTimeout(function () { $("#narr").hidden = true; }, 1000); fitAll(1800); AU.setScene("map"); $("#hint").hidden = !S.story;
+}
+$("#startBtn").onclick = function () {
+  AU.init(); AU.setScene("title"); AU.taiko(); $("#start").classList.add("gone");
+  cam = { x: CX, y: CY, s: 1.5 }; apply();
+  if (!S.story) { finishIntro(); return; }
+  var narr = $("#narr"); narr.hidden = false; $("#skip").hidden = false;
+  var spans = $$("#narr p > span");
+  spans.forEach(function (s, i) { setTimeout(function () { if (!introDone) { s.classList.add("on"); AU.hover(); } }, 500 + i * 1600); });
+  setTimeout(finishIntro, 500 + spans.length * 1600 + 1400);
+};
+$("#skip").onclick = finishIntro;
+})();
+
+</script>
+</body>
+</html>
